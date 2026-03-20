@@ -2,7 +2,7 @@
 
 ## Parser
 
-- [ ] Compute source regions for inline nodes
+- [x] Compute source regions for inline nodes
 - [ ] Full Obsidian Flavored Markdown support (comments, frontmatter, callouts, strikethrough, highlights, tags)
 - [ ] Multi-line footnote definitions (indented continuation)
 - [ ] Full emoji dictionary (compare against GitHub's complete set)
