@@ -1,11 +1,11 @@
-module Main exposing (main)
+port module Main exposing (main)
 
 import Browser
 import Dict exposing (Dict)
+import FsServer
 import Html exposing (..)
 import Html.Attributes as Attr
 import Html.Events as Events
-import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Markdown
@@ -13,20 +13,33 @@ import Markdown.Block as Block exposing (Block(..), BlockContent(..), ParseResul
 import Markdown.Inline as Inline exposing (Inline(..), InlineContent(..))
 import Markdown.Wikilink exposing (WikilinkData)
 import SourceLocation exposing (ComparableRegion, Region)
+import WebSocketManager as WS
 
 
-main : Program () Model Msg
+port wsOut : WS.CommandPort msg
+
+
+port wsIn : WS.EventPort msg
+
+
+main : Program Flags Model Msg
 main =
     Browser.element
         { init = init
         , update = update
         , view = view
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         }
 
 
 
 -- MODEL
+
+
+type alias Flags =
+    { wsUrl : String
+    , projectDir : String
+    }
 
 
 type alias Model =
@@ -37,6 +50,9 @@ type alias Model =
     , hoveredRegion : Maybe Region
     , scrollToRegion : Maybe ( Region, Int )
     , error : Maybe String
+    , wsConfig : WS.Config
+    , wsConnected : Bool
+    , projectDir : String
     }
 
 
@@ -52,8 +68,17 @@ emptyParseResult =
 -- INIT
 
 
-init : () -> ( Model, Cmd Msg )
-init () =
+init : Flags -> ( Model, Cmd Msg )
+init flags =
+    let
+        wsConfig : WS.Config
+        wsConfig =
+            WS.init flags.wsUrl
+
+        ws : WS.WebSocket Msg
+        ws =
+            WS.bind wsConfig wsOut GotWsEvent
+    in
     ( { source = ""
       , parseResult = emptyParseResult
       , files = []
@@ -61,8 +86,11 @@ init () =
       , hoveredRegion = Nothing
       , scrollToRegion = Nothing
       , error = Nothing
+      , wsConfig = wsConfig
+      , wsConnected = False
+      , projectDir = flags.projectDir
       }
-    , fetchFileList
+    , ws.open
     )
 
 
@@ -74,11 +102,18 @@ type Msg
     = SourceChanged String
     | SaveRequested String
     | SelectedFile String
-    | GotFileList (Result Http.Error (List String))
-    | GotFileContent (Result Http.Error String)
-    | SavedFile (Result Http.Error ())
+    | GotWsEvent (Result Decode.Error WS.Event)
     | HoveredAstNode (Maybe Region)
     | ClickedAstNode Region
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    WS.onEvent wsIn [ ( model.wsConfig, GotWsEvent ) ] (GotWsEvent << Err)
 
 
 
@@ -99,52 +134,21 @@ update msg model =
         SaveRequested content ->
             case model.currentFile of
                 Just file ->
-                    ( model, saveFile file content )
+                    ( model, wsSendJsonValue model (FsServer.encodeSaveFile file content) )
 
                 Nothing ->
                     ( { model | error = Just "No file selected" }, Cmd.none )
 
         SelectedFile file ->
             ( { model | currentFile = Just file, error = Nothing }
-            , fetchFileContent file
+            , sendReadContent model file
             )
 
-        GotFileList (Ok files) ->
-            let
-                firstFile : Maybe String
-                firstFile =
-                    files |> List.head
-            in
-            ( { model | files = files, currentFile = firstFile, error = Nothing }
-            , firstFile
-                |> Maybe.map fetchFileContent
-                |> Maybe.withDefault Cmd.none
-            )
+        GotWsEvent (Ok event) ->
+            handleWsEvent event model
 
-        GotFileList (Err err) ->
-            ( { model | error = Just ("Failed to load file list: " ++ httpErrorToString err) }
-            , Cmd.none
-            )
-
-        GotFileContent (Ok content) ->
-            ( { model
-                | source = content
-                , parseResult = Markdown.parse Nothing content
-                , error = Nothing
-              }
-            , Cmd.none
-            )
-
-        GotFileContent (Err err) ->
-            ( { model | error = Just ("Failed to load file: " ++ httpErrorToString err) }
-            , Cmd.none
-            )
-
-        SavedFile (Ok _) ->
-            ( model, Cmd.none )
-
-        SavedFile (Err err) ->
-            ( { model | error = Just ("Save failed: " ++ httpErrorToString err) }
+        GotWsEvent (Err decodeError) ->
+            ( { model | error = Just ("WS decode error: " ++ Decode.errorToString decodeError) }
             , Cmd.none
             )
 
@@ -165,57 +169,182 @@ update msg model =
 
 
 
--- HTTP
+-- WEBSOCKET COMMUNICATION
 
 
-httpErrorToString : Http.Error -> String
-httpErrorToString err =
-    case err of
-        Http.BadUrl url ->
-            "Bad URL: " ++ url
-
-        Http.Timeout ->
-            "Request timed out"
-
-        Http.NetworkError ->
-            "Network error"
-
-        Http.BadStatus status ->
-            "Server returned " ++ String.fromInt status
-
-        Http.BadBody body ->
-            "Bad response: " ++ body
+wsSendJsonValue : Model -> Encode.Value -> Cmd Msg
+wsSendJsonValue model jsonValue =
+    let
+        ws : WS.WebSocket Msg
+        ws =
+            WS.bind model.wsConfig wsOut GotWsEvent
+    in
+    ws.sendText (Encode.encode 0 jsonValue)
 
 
-fetchFileList : Cmd Msg
-fetchFileList =
-    Http.get
-        { url = "/files"
-        , expect = Http.expectJson GotFileList (Decode.list Decode.string)
-        }
+sendScanDirectory : Model -> Cmd Msg
+sendScanDirectory model =
+    wsSendJsonValue model (FsServer.encodeScanDirectory model.projectDir Nothing)
 
 
-fetchFileContent : String -> Cmd Msg
-fetchFileContent file =
-    Http.get
-        { url = "/files/" ++ file
-        , expect = Http.expectString GotFileContent
-        }
+sendReadContent : Model -> String -> Cmd Msg
+sendReadContent model filePath =
+    wsSendJsonValue model (FsServer.encodeReadContent filePath)
 
 
-saveFile : String -> String -> Cmd Msg
-saveFile path content =
-    Http.post
-        { url = "/save"
-        , body =
-            Http.jsonBody
-                (Encode.object
-                    [ ( "path", Encode.string path )
-                    , ( "content", Encode.string content )
-                    ]
-                )
-        , expect = Http.expectWhatever SavedFile
-        }
+
+-- WEBSOCKET EVENT HANDLING
+
+
+handleWsEvent : WS.Event -> Model -> ( Model, Cmd Msg )
+handleWsEvent event model =
+    case event of
+        WS.Opened ->
+            ( { model | wsConnected = True }
+            , sendScanDirectory model
+            )
+
+        WS.MessageReceived message ->
+            handleServerMessage message model
+
+        WS.Closed _ ->
+            ( { model | wsConnected = False }, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+handleServerMessage : String -> Model -> ( Model, Cmd Msg )
+handleServerMessage message model =
+    case Decode.decodeString FsServer.serverMessageDecoder message of
+        Ok (FsServer.DirectoryListing { entries }) ->
+            let
+                fileNames : List String
+                fileNames =
+                    entries
+                        |> List.filterMap
+                            (\e ->
+                                if not e.isDirectory && String.endsWith ".md" e.name then
+                                    Just e.path
+                                else
+                                    Nothing
+                            )
+
+                firstFile : Maybe String
+                firstFile =
+                    fileNames |> List.head
+            in
+            ( { model | files = fileNames, currentFile = firstFile, error = Nothing }
+            , firstFile
+                |> Maybe.map (sendReadContent model)
+                |> Maybe.withDefault Cmd.none
+            )
+
+        Ok (FsServer.FileContent { content }) ->
+            case content of
+                Just c ->
+                    ( { model
+                        | source = c
+                        , parseResult = Markdown.parse Nothing c
+                        , error = Nothing
+                      }
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        Ok (FsServer.FileTreeDelta delta) ->
+            let
+                isMdFile : { a | name : String, isDirectory : Bool } -> Bool
+                isMdFile e =
+                    not e.isDirectory && String.endsWith ".md" e.name
+
+                addedFiles : List String
+                addedFiles =
+                    delta.added
+                        |> List.filterMap
+                            (\e ->
+                                if isMdFile e then
+                                    Just e.path
+                                else
+                                    Nothing
+                            )
+
+                renamedOldPaths : List String
+                renamedOldPaths =
+                    delta.renamed |> List.map .oldPath
+
+                renamedNewFiles : List String
+                renamedNewFiles =
+                    delta.renamed
+                        |> List.filterMap
+                            (\e ->
+                                if isMdFile e then
+                                    Just e.newPath
+                                else
+                                    Nothing
+                            )
+
+                removedFiles : List String
+                removedFiles =
+                    delta.removed ++ renamedOldPaths
+
+                updatedFiles : List String
+                updatedFiles =
+                    model.files
+                        |> List.filter (\f -> not (List.member f removedFiles))
+                        |> (\existing -> existing ++ addedFiles ++ renamedNewFiles)
+                        |> List.sort
+
+                needsReload : Bool
+                needsReload =
+                    delta.changed
+                        |> List.any (\c -> model.currentFile == Just c.path)
+
+                renamedPath : Maybe String
+                renamedPath =
+                    delta.renamed
+                        |> List.filter (\r -> r.oldPath == Maybe.withDefault "" model.currentFile)
+                        |> List.head
+                        |> Maybe.map .newPath
+
+                updatedCurrentFile : Maybe String
+                updatedCurrentFile =
+                    case model.currentFile of
+                        Just cur ->
+                            case renamedPath of
+                                Just newPath ->
+                                    Just newPath
+
+                                Nothing ->
+                                    if List.member cur removedFiles then
+                                        Nothing
+
+                                    else
+                                        Just cur
+
+                        Nothing ->
+                            Nothing
+            in
+            ( { model | files = updatedFiles, currentFile = updatedCurrentFile }
+            , if needsReload then
+                updatedCurrentFile
+                    |> Maybe.map (sendReadContent model)
+                    |> Maybe.withDefault Cmd.none
+
+              else
+                Cmd.none
+            )
+
+        Ok (FsServer.SaveResult _) ->
+            ( model, Cmd.none )
+
+        Ok (FsServer.Error err) ->
+            ( { model | error = Just ("Server error: " ++ err.message) }, Cmd.none )
+
+        Err decodeError ->
+            ( { model | error = Just ("Decode error: " ++ Decode.errorToString decodeError) }, Cmd.none )
 
 
 
@@ -308,6 +437,7 @@ viewEditor : Model -> Html Msg
 viewEditor model =
     Html.node "codemirror-element"
         [ Attr.attribute "value" model.source
+        , Attr.attribute "language" "markdown"
         , Events.on "value-changed"
             (Decode.at [ "detail", "value" ] Decode.string
                 |> Decode.map SourceChanged
