@@ -164,10 +164,22 @@
   <div id="app"></div>
 
   <script src="./build/codemirror-bundle.js"></script>
-  <script src="./codemirror-element.js"></script>
+  <script src="./lib/elm-codemirror/js/codemirror-element.js"></script>
+  <script src="./build/ws-bridge.js"></script>
   <script src="./build/main.js"></script>
   <script>
-    var app = Elm.Main.init({ node: document.getElementById("app") });
+    async function boot() {
+      const config = await (await fetch("/ws-config")).json();
+      const app = Elm.Main.init({
+        node: document.getElementById("app"),
+        flags: {
+          wsUrl: "ws://127.0.0.1:" + config.wsPort,
+          projectDir: config.projectDir
+        }
+      });
+      initWebSocketBridge(app);
+    }
+    boot().catch(err => console.error("Boot failed:", err));
   </script>
 </body>
 </html>

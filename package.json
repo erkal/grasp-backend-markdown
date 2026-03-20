@@ -2,10 +2,11 @@
   "type": "module",
   "scripts": {
     "postinstall": "elm-tooling install",
-    "build:cm6": "esbuild codemirror-bundle.js --bundle --outfile=build/codemirror-bundle.js --format=iife",
-    "dev": "concurrently \"elm-watch hot\" \"esbuild codemirror-bundle.js --bundle --outfile=build/codemirror-bundle.js --format=iife --watch\" \"node server.js\" \"sh scripts/open-if-not-open.sh http://localhost:8015\"",
-    "build": "npm run build:cm6 -- --minify && elm-watch make --optimize",
-    "buildnonoptimized": "npm run build:cm6 && elm-watch make",
+    "build:cm6": "pnpm exec esbuild lib/elm-codemirror/js/codemirror-bundle.js --bundle --outfile=build/codemirror-bundle.js --format=iife --preserve-symlinks",
+    "build:ws": "pnpm exec esbuild ws-bridge.js --bundle --outfile=build/ws-bridge.js --format=iife --preserve-symlinks",
+    "dev": "concurrently \"elm-watch hot\" \"pnpm exec esbuild lib/elm-codemirror/js/codemirror-bundle.js --bundle --outfile=build/codemirror-bundle.js --format=iife --preserve-symlinks --watch\" \"pnpm exec esbuild ws-bridge.js --bundle --outfile=build/ws-bridge.js --format=iife --preserve-symlinks --watch\" \"node dev-server.js\" \"sh scripts/open-if-not-open.sh http://localhost:8015\"",
+    "build": "npm run build:cm6 -- --minify && npm run build:ws -- --minify && elm-watch make --optimize",
+    "buildnonoptimized": "npm run build:cm6 && npm run build:ws && elm-watch make",
     "test": "elm-test"
   },
   "devDependencies": {
@@ -13,8 +14,7 @@
     "elm-test": "0.19.1-revision17",
     "elm-tooling": "1.17.0",
     "elm-watch": "^1.2.6",
-    "esbuild": "^0.27.4",
-    "express": "^4.21.0"
+    "esbuild": "^0.27.4"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.1",
@@ -24,7 +24,9 @@
     "@codemirror/search": "^6.6.0",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.40.0",
+    "@lezer/highlight": "^1.2.3",
     "@replit/codemirror-indentation-markers": "^6.5.3",
-    "codemirror": "^6.0.2"
+    "codemirror": "^6.0.2",
+    "elm-xhr-bytes-bridge": "link:lib/elm-xhr-bytes-bridge"
   }
 }
