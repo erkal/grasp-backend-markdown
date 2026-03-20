@@ -159,14 +159,12 @@ fromRawBlock row rawBlock =
         lineCount =
             rawBlockLineCount rawBlock
 
-        endRow : Int
-        endRow =
-            row + lineCount - 1
-
+        -- Exclusive end: end.row is the row AFTER the block.
+        -- This ensures single-line blocks produce non-zero-width ranges.
         region : Region
         region =
             { start = { row = row, col = 1 }
-            , end = { row = endRow, col = 1 }
+            , end = { row = row + lineCount, col = 1 }
             }
     in
     case rawBlock of
@@ -235,15 +233,15 @@ fromRawBlockContent rawBlock =
             PlainInlines inlines
 
         -- Recursive variants handled in fromRawBlock; these are unreachable
-        -- but Elm requires exhaustive patterns
+        -- but Elm requires exhaustive patterns. Sentinel text for debugging.
         RawBlock.BlockQuote _ ->
-            BlankLine ""
+            BlankLine "[BUG: BlockQuote reached fromRawBlockContent]"
 
         RawBlock.List _ _ ->
-            BlankLine ""
+            BlankLine "[BUG: List reached fromRawBlockContent]"
 
         RawBlock.Custom _ _ ->
-            BlankLine ""
+            BlankLine "[BUG: Custom reached fromRawBlockContent]"
 
 
 rawBlockLineCount : RawBlock.RawBlock b i -> Int
@@ -292,8 +290,14 @@ rawBlockLineCount rawBlock =
                                )
             in
             case codeBlock of
-                RawBlock.Fenced _ _ ->
-                    codeLines + 2
+                RawBlock.Fenced isOpen _ ->
+                    if isOpen then
+                        -- Unclosed fence: opening fence line + code lines (no closing fence)
+                        codeLines + 1
+
+                    else
+                        -- Closed fence: opening + closing fence lines + code lines
+                        codeLines + 2
 
                 RawBlock.Indented ->
                     max 1 codeLines
@@ -419,7 +423,8 @@ isValidBlockId str =
 isBlockIdChar : Char -> Bool
 isBlockIdChar c =
     Char.isDigit c
-        || (Char.toCode c >= 97 && Char.toCode c <= 122)
+        || Char.isLower c
+        || Char.isUpper c
         || c == '-'
 
 

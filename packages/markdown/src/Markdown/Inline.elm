@@ -40,7 +40,7 @@ type Inline i
   - **CodeInline** | _Code_
   - **Link** | _Url_ | _Maybe Title_ | _Inlines_
   - **Image** | _Source_ | _Maybe Title_ | _Inlines_
-  - **HtmlInline** | _Tag_ | _List ( Attribute, Maybe Value )_ | _Inlines_
+  - **HtmlInline** | _Tag_ | _List Attribute_ | _Inlines_
   - **Emphasis** | _Delimiter Length_ | _Inlines_
   - **Custom** | _Custom type_ | _Inlines_
   - **Wikilink** | _WikilinkData_

@@ -1,4 +1,19 @@
-module Markdown.Helpers exposing (..)
+module Markdown.Helpers
+    exposing
+        ( Attribute
+        , References
+        , cleanWhitespaces
+        , formatStr
+        , ifError
+        , indentLength
+        , indentLine
+        , insideSquareBracketRegex
+        , isEven
+        , prepareRefLabel
+        , returnFirstJust
+        , titleRegex
+        , whiteSpaceChars
+        )
 
 import Dict exposing (Dict)
 import Markdown.Entity as Entity

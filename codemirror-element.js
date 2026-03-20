@@ -10,6 +10,12 @@ class CodeMirrorElement extends HTMLElement {
   connectedCallback() {
     this.innerHTML = '';
 
+    if (!window.CodeMirror6) {
+      this.innerHTML = '<p style="color: #f48771; padding: 12px; font-family: monospace;">Editor failed to load: CodeMirror bundle not available. Check that build/codemirror-bundle.js loaded.</p>';
+      console.error('[codemirror-element] window.CodeMirror6 is not defined.');
+      return;
+    }
+
     const { EditorView, EditorState, customSetup, ViewPlugin, keymap } = window.CodeMirror6;
 
     const changePlugin = ViewPlugin.define((view) => ({
@@ -59,10 +65,13 @@ class CodeMirrorElement extends HTMLElement {
         const currentValue = this.view.state.doc.toString();
         if (newValue !== currentValue) {
           this.isUpdating = true;
-          this.view.dispatch({
-            changes: { from: 0, to: this.view.state.doc.length, insert: newValue || '' }
-          });
-          this.isUpdating = false;
+          try {
+            this.view.dispatch({
+              changes: { from: 0, to: this.view.state.doc.length, insert: newValue || '' }
+            });
+          } finally {
+            this.isUpdating = false;
+          }
         }
         break;
 
@@ -73,37 +82,59 @@ class CodeMirrorElement extends HTMLElement {
   }
 
   set decorations(ranges) {
-    if (!this.view) return;
+    if (!this.view || !Array.isArray(ranges)) return;
     const { Decoration, addMarks, clearMarks } = window.CodeMirror6;
 
-    const marks = ranges.map(r =>
-      Decoration.mark({ class: r.class }).range(r.from, r.to)
-    );
+    try {
+      const docLength = this.view.state.doc.length;
+      const marks = ranges
+        .filter(r => {
+          const valid = r.from >= 0 && r.to >= r.from && r.to <= docLength;
+          if (!valid) console.warn('[codemirror-element] Skipping out-of-bounds decoration:', r, 'docLength:', docLength);
+          return valid;
+        })
+        .map(r => Decoration.mark({ class: r.class }).range(r.from, r.to));
 
-    this.view.dispatch({
-      effects: [clearMarks.of(null), addMarks.of(marks)]
-    });
+      this.view.dispatch({
+        effects: [clearMarks.of(null), addMarks.of(marks)]
+      });
+    } catch (e) {
+      console.error('[codemirror-element] Failed to apply decorations:', e);
+    }
   }
 
   set scrollTo(pos) {
     if (!this.view || pos == null) return;
     const { EditorView } = window.CodeMirror6;
     const offset = typeof pos === 'number' ? pos : pos.offset;
-    if (offset == null) return;
-    this.view.dispatch({
-      selection: { anchor: offset },
-      effects: EditorView.scrollIntoView(offset, { y: 'center' })
-    });
-    this.view.focus();
+    if (offset == null || !Number.isFinite(offset)) return;
+    try {
+      const docLength = this.view.state.doc.length;
+      const clampedOffset = Math.max(0, Math.min(offset, docLength));
+      if (clampedOffset !== offset) {
+        console.warn('[codemirror-element] scrollTo offset', offset, 'clamped to', clampedOffset, '(docLength:', docLength, ')');
+      }
+      this.view.dispatch({
+        selection: { anchor: clampedOffset },
+        effects: EditorView.scrollIntoView(clampedOffset, { y: 'center' })
+      });
+      this.view.focus();
+    } catch (e) {
+      console.error('[codemirror-element] Failed to scroll:', e);
+    }
   }
 
   updateLineNumbers() {
     if (!this.view) return;
-    const { lineNumbersCompartment, lineNumbers } = window.CodeMirror6;
-    const show = this.getAttribute('show-line-numbers') !== 'false';
-    this.view.dispatch({
-      effects: lineNumbersCompartment.reconfigure(show ? lineNumbers() : [])
-    });
+    try {
+      const { lineNumbersCompartment, lineNumbers } = window.CodeMirror6;
+      const show = this.getAttribute('show-line-numbers') !== 'false';
+      this.view.dispatch({
+        effects: lineNumbersCompartment.reconfigure(show ? lineNumbers() : [])
+      });
+    } catch (e) {
+      console.error('[codemirror-element] Failed to update line numbers:', e);
+    }
   }
 
   focus() {

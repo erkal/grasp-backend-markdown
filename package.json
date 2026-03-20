@@ -6,10 +6,11 @@
     "dev": "concurrently \"elm-watch hot\" \"esbuild codemirror-bundle.js --bundle --outfile=build/codemirror-bundle.js --format=iife --watch\" \"node server.js\" \"sh scripts/open-if-not-open.sh http://localhost:8015\"",
     "build": "npm run build:cm6 -- --minify && elm-watch make --optimize",
     "buildnonoptimized": "npm run build:cm6 && elm-watch make",
-    "test": "npx elm-test"
+    "test": "elm-test"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
+    "elm-test": "0.19.1-revision17",
     "elm-tooling": "1.17.0",
     "elm-watch": "^1.2.6",
     "esbuild": "^0.27.4",

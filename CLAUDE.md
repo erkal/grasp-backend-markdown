@@ -8,8 +8,10 @@ A standalone parser that knows markdown. It lives in its own repository, runs en
 the browser (no backend process), and knows nothing about Grasp's graph, addressing, chat,
 or UI systems.
 
-The parser produces a typed AST with source regions on every node (Block and Inline).
-It also extracts block IDs (`^block-id` patterns) and wikilinks at parse time.
+The parser produces a typed AST with source regions on block nodes (inline regions
+are not yet computed). It extracts block IDs (`^block-id` patterns) at parse time.
+Wikilinks are parsed within inline nodes but not yet aggregated into the top-level
+`ParseResult.wikilinks` dict.
 
 ## Build Commands
 

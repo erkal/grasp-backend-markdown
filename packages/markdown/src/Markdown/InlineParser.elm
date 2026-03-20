@@ -157,7 +157,7 @@ parseTextMatch rawText (Match matchModel) parsedMatches =
                 updtMatch
                     :: normalMatch (String.slice matchModel.end matchHead.start rawText)
                     :: parsedMatches
-                -- Overlaping or inside previous Match
+                -- Overlapping or inside previous Match
             else
                 parsedMatches
 
@@ -957,7 +957,7 @@ organizeMatch (Match match) matches =
             then
                 addChild prevMatch match
                     :: matchesTail
-                -- Overlaping previous Match
+                -- Overlapping previous Match
             else
                 matches
 
@@ -1140,7 +1140,7 @@ autolinkToMatch (Match match) =
 
 
 
--- From http://spec.commonmark.org/dingus/commonmark.js
+-- Regex from CommonMark spec (https://spec.commonmark.org)
 
 
 urlRegex : Regex
@@ -1163,7 +1163,7 @@ emailAutolinkTypeToMatch (Match match) =
 
 
 
--- From http://spec.commonmark.org/dingus/commonmark.js
+-- Regex from CommonMark spec (https://spec.commonmark.org)
 
 
 emailRegex : Regex
@@ -1830,7 +1830,7 @@ emphasisTTM ( tokens, model ) =
                     -- Close or opening token
                     if leftRank == rightRank then
                         -- If 1) is not surrounded by whitespace and
-                        --    2) is not '_' or is surronded by puntuaction
+                        --    2) is not '_' or is surrounded by punctuation
                         -- is a close or opening tag
                         if
                             rightRank
@@ -2056,43 +2056,6 @@ matchToInline (Match match) =
 
 
 {-| Apply a function to every inline recursively.
-
-Example of converting all text in **headings** to **ALL CAPS**:
-
-    import Html exposing (Html, article)
-    import Markdown.Block as Block exposing (Block(..))
-    import Markdown.Inline as Inline exposing (Inline(..))
-
-    view : Html msg
-    view =
-        myMarkdownString
-            |> Block.parse Nothing
-            |> List.map (Block.walk modHeader)
-            |> List.map Block.toHtml
-            |> List.concat
-            |> article []
-
-    modHeader : Block b i -> Block b i
-    modHeader block =
-        case block of
-            Heading rawText level inlines ->
-                List.map (Inline.walk upperText) inlines
-                    |> Heading rawText level
-
-            _ ->
-                block
-
-    upperText : Inline i -> Inline i
-    upperText inline =
-        case inline of
-            Text str ->
-                Text (String.toUpper str)
-
-            _ ->
-                inline
-
-**Note:** In this example, `Block.walkInlines` could be used instead.
-
 -}
 walk : (Inline i -> Inline i) -> Inline i -> Inline i
 walk function (Inline inline) =

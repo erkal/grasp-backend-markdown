@@ -18,6 +18,7 @@ app.get("/files", async (_req, res) => {
     const mdFiles = entries.filter(f => f.endsWith(".md")).sort();
     res.json(mdFiles);
   } catch (err) {
+    console.error("[files] Failed to list directory:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -33,7 +34,9 @@ app.get("/files/:name", async (req, res) => {
     const content = await readFile(resolved, "utf-8");
     res.type("text/plain").send(content);
   } catch (err) {
-    res.status(404).json({ error: err.message });
+    const status = err.code === "ENOENT" ? 404 : 500;
+    console.error(`[files/:name] Failed to read ${resolved}:`, err.message);
+    res.status(status).json({ error: err.message });
   }
 });
 

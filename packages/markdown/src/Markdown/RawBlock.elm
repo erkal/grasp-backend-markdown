@@ -8,7 +8,7 @@ module Markdown.RawBlock
         , parse
         )
 
-{-| Internal block parsing. The parsing code lives here unchanged.
+{-| Internal block parsing.
 Markdown.Block wraps the result with Region metadata.
 
 

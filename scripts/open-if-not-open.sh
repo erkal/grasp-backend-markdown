@@ -1,7 +1,7 @@
 #!/bin/sh
 # Opens the given URL in the default browser, or focuses the existing tab if already open.
 # macOS: checks Safari and Chrome for an existing tab. Other platforms: simple open.
-# Usage: sh scripts/open-if-not-open.sh http://localhost:8013
+# Usage: sh scripts/open-if-not-open.sh http://localhost:8015
 
 url="$1"
 if [ -z "$url" ]; then

@@ -36,6 +36,7 @@ type alias Model =
     , currentFile : Maybe String
     , hoveredRegion : Maybe Region
     , scrollToRegion : Maybe ( Region, Int )
+    , error : Maybe String
     }
 
 
@@ -59,6 +60,7 @@ init () =
       , currentFile = Nothing
       , hoveredRegion = Nothing
       , scrollToRegion = Nothing
+      , error = Nothing
       }
     , fetchFileList
     )
@@ -100,10 +102,10 @@ update msg model =
                     ( model, saveFile file content )
 
                 Nothing ->
-                    ( model, Cmd.none )
+                    ( { model | error = Just "No file selected" }, Cmd.none )
 
         SelectedFile file ->
-            ( { model | currentFile = Just file }
+            ( { model | currentFile = Just file, error = Nothing }
             , fetchFileContent file
             )
 
@@ -113,28 +115,38 @@ update msg model =
                 firstFile =
                     files |> List.head
             in
-            ( { model | files = files, currentFile = firstFile }
+            ( { model | files = files, currentFile = firstFile, error = Nothing }
             , firstFile
                 |> Maybe.map fetchFileContent
                 |> Maybe.withDefault Cmd.none
             )
 
-        GotFileList (Err _) ->
-            ( model, Cmd.none )
+        GotFileList (Err err) ->
+            ( { model | error = Just ("Failed to load file list: " ++ httpErrorToString err) }
+            , Cmd.none
+            )
 
         GotFileContent (Ok content) ->
             ( { model
                 | source = content
                 , parseResult = Markdown.parse Nothing content
+                , error = Nothing
               }
             , Cmd.none
             )
 
-        GotFileContent (Err _) ->
+        GotFileContent (Err err) ->
+            ( { model | error = Just ("Failed to load file: " ++ httpErrorToString err) }
+            , Cmd.none
+            )
+
+        SavedFile (Ok _) ->
             ( model, Cmd.none )
 
-        SavedFile _ ->
-            ( model, Cmd.none )
+        SavedFile (Err err) ->
+            ( { model | error = Just ("Save failed: " ++ httpErrorToString err) }
+            , Cmd.none
+            )
 
         HoveredAstNode maybeRegion ->
             ( { model | hoveredRegion = maybeRegion }, Cmd.none )
@@ -154,6 +166,25 @@ update msg model =
 
 
 -- HTTP
+
+
+httpErrorToString : Http.Error -> String
+httpErrorToString err =
+    case err of
+        Http.BadUrl url ->
+            "Bad URL: " ++ url
+
+        Http.Timeout ->
+            "Request timed out"
+
+        Http.NetworkError ->
+            "Network error"
+
+        Http.BadStatus status ->
+            "Server returned " ++ String.fromInt status
+
+        Http.BadBody body ->
+            "Bad response: " ++ body
 
 
 fetchFileList : Cmd Msg
@@ -246,6 +277,12 @@ viewTopBar model =
     div [ Attr.class "topbar" ]
         [ span [ Attr.class "topbar-title" ] [ text "grasp-backend-markdown" ]
         , viewFileSelector model
+        , case model.error of
+            Just errorMsg ->
+                span [ Attr.class "topbar-error" ] [ text errorMsg ]
+
+            Nothing ->
+                text ""
         ]
 
 

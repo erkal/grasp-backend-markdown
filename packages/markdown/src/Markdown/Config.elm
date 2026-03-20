@@ -21,11 +21,10 @@ module Markdown.Config
 ----------------------------------------------------------------------
 
 
-{-| Some parser options so you can tweak things for your
-particular case.
+{-| Parser options.
 
-  - `softAsHardLineBreak`: If set to `True`, will render `\n` as `<br>`.
-  - `rawHtml`: This determine what to do with raw html elements.
+  - `softAsHardLineBreak`: If set to `True`, treats soft line breaks (`\n`) as hard line breaks in the AST.
+  - `rawHtml`: Determines what to do with raw html elements.
 
 -}
 type alias Options =
@@ -34,7 +33,7 @@ type alias Options =
     }
 
 
-{-| The `Options` used in `Markdown.toHtml`.
+{-| Default parser options.
 
     { softAsHardLineBreak = False
     , rawHtml = Sanitize defaultSanitizeOptions
