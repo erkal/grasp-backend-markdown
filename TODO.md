@@ -8,18 +8,15 @@
 
 ## Visualization
 
-- [ ] Hover on AST node highlights source region in editor (wired, needs visual polish)
-- [ ] Click AST node scrolls editor to source location (wired, needs visual polish)
+- [ ] Hover highlight visual polish (functional after region fix)
+- [ ] Click-to-scroll visual polish (functional after region fix)
 - [ ] Collapsible AST tree nodes
 - [ ] Search/filter in AST panel
 
 ## Testing
 
-- [x] Block parser tests
-- [x] Inline parser tests
-- [x] Block ID extraction tests
-- [x] Wikilink parsing tests
 - [x] Region tracking tests
+- [ ] Tests that assert parsed content (not just type labels)
 - [ ] Edge case tests (deeply nested structures, malformed input)
 - [ ] Roundtrip property tests
 
