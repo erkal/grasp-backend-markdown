@@ -6,13 +6,48 @@ import Markdown.Helpers exposing (Attribute, References, cleanWhitespaces, forma
 import Markdown.Inline exposing (Inline(..), InlineContent(..))
 import Markdown.Wikilink as Wikilink exposing (WikilinkData)
 import Regex exposing (Regex)
-import SourceLocation exposing (Region, placeholderRegion)
+import SourceLocation exposing (Position, Region, placeholderRegion)
 import Url
 
 
 wrapInline : InlineContent i -> Inline i
 wrapInline content =
     Inline { content = content, region = placeholderRegion }
+
+
+
+{-| Convert a character offset within `text` to an absolute Position.
+`base` is the source position of the first character in `text`.
+For continuation lines (after newlines in `text`), column resets to 1.
+-}
+offsetToPosition : Position -> String -> Int -> Position
+offsetToPosition base text offset =
+    let
+        before =
+            String.left offset text
+
+        newlineCount =
+            before
+                |> String.toList
+                |> List.filter (\c -> c == '\n')
+                |> List.length
+    in
+    if newlineCount == 0 then
+        { row = base.row, col = base.col + offset }
+
+    else
+        let
+            lastNewlineIndex =
+                before
+                    |> String.indexes "\n"
+                    |> List.reverse
+                    |> List.head
+                    |> Maybe.withDefault 0
+
+            colAfterNewline =
+                offset - lastNewlineIndex - 1
+        in
+        { row = base.row + newlineCount, col = 1 + colAfterNewline }
 
 
 
@@ -105,12 +140,12 @@ parseTextMatches rawText parsedMatches matches =
                         []
                         -- No match found
                     else
-                        [ normalMatch rawText ]
+                        [ normalMatch 0 (String.length rawText) rawText ]
 
                 -- Add initial normal match
                 (Match matchModel) :: _ ->
                     if matchModel.start > 0 then
-                        normalMatch (String.left matchModel.start rawText)
+                        normalMatch 0 matchModel.start (String.left matchModel.start rawText)
                             :: parsedMatches
                     else
                         parsedMatches
@@ -143,10 +178,10 @@ parseTextMatch rawText (Match matchModel) parsedMatches =
                 [ updtMatch ]
             else
                 [ updtMatch
-                , normalMatch finalStr
+                , normalMatch matchModel.end (String.length rawText) finalStr
                 ]
 
-        (Match matchHead) :: matchesTail ->
+        (Match matchHead) :: _ ->
             if matchHead.type_ == NormalType then
                 updtMatch :: parsedMatches
                 -- New Match
@@ -155,7 +190,7 @@ parseTextMatch rawText (Match matchModel) parsedMatches =
                 -- New Match and add in between unmatched string
             else if matchModel.end < matchHead.start then
                 updtMatch
-                    :: normalMatch (String.slice matchModel.end matchHead.start rawText)
+                    :: normalMatch matchModel.end matchHead.start (String.slice matchModel.end matchHead.start rawText)
                     :: parsedMatches
                 -- Overlapping or inside previous Match
             else
@@ -894,14 +929,14 @@ type alias MatchModel =
     }
 
 
-normalMatch : String -> Match
-normalMatch text =
+normalMatch : Int -> Int -> String -> Match
+normalMatch start end text =
     Match
         { type_ = NormalType
-        , start = 0
-        , end = 0
-        , textStart = 0
-        , textEnd = 0
+        , start = start
+        , end = end
+        , textStart = start
+        , textEnd = end
         , text = formatStr text
         , matches = []
         }
