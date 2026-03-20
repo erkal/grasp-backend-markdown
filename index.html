@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>grasp-backend-markdown</title>
+  <link rel="stylesheet" href="reset.css" />
+  <style>
+    body {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 6px 12px;
+      background-color: #252526;
+      border-bottom: 1px solid #2d2d2d;
+      flex-shrink: 0;
+    }
+
+    .topbar-title {
+      font-weight: 600;
+      font-size: 13px;
+      color: #cccccc;
+    }
+
+    .file-selector {
+      background-color: #3c3c3c;
+      color: #d4d4d4;
+      border: 1px solid #555;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-size: 12px;
+    }
+
+    .panels {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .editor-panel {
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .ast-panel {
+      width: 400px;
+      min-width: 200px;
+      border-left: 1px solid #2d2d2d;
+      overflow-y: auto;
+      background-color: #1e1e1e;
+    }
+
+    .ast-header {
+      padding: 8px 12px;
+      font-weight: 600;
+      font-size: 13px;
+      background-color: #252526;
+      border-bottom: 1px solid #2d2d2d;
+      position: sticky;
+      top: 0;
+    }
+
+    .ast-tree {
+      padding: 4px 0;
+      font-size: 12px;
+      font-family: "ui-monospace", "SFMono-Regular", "Menlo", monospace;
+    }
+
+    .ast-section {
+      margin: 4px 0;
+      border-bottom: 1px solid #2d2d2d;
+    }
+
+    .ast-section-header {
+      padding: 4px 12px;
+      font-weight: 600;
+      color: #4ec9b0;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .ast-section-body {
+      padding: 0 12px 4px;
+    }
+
+    .ast-block-id,
+    .ast-wikilink {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .ast-block-id:hover,
+    .ast-wikilink:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .ast-id-name {
+      color: #dcdcaa;
+    }
+
+    .ast-wikilink-target {
+      color: #9cdcfe;
+    }
+
+    .ast-node {
+      padding: 1px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .ast-node:hover {
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .ast-node-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ast-node-type {
+      color: #4ec9b0;
+      font-weight: 500;
+    }
+
+    .ast-inline-type {
+      color: #ce9178;
+    }
+
+    .ast-region {
+      color: #6a9955;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+
+    .ast-list-item-label {
+      color: #569cd6;
+      font-size: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script src="./build/codemirror-bundle.js"></script>
+  <script src="./codemirror-element.js"></script>
+  <script src="./build/main.js"></script>
+  <script>
+    var app = Elm.Main.init({ node: document.getElementById("app") });
+  </script>
+</body>
+</html>

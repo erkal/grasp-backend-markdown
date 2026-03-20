@@ -1,0 +1,29 @@
+{
+  "type": "module",
+  "scripts": {
+    "postinstall": "elm-tooling install",
+    "build:cm6": "esbuild codemirror-bundle.js --bundle --outfile=build/codemirror-bundle.js --format=iife",
+    "dev": "concurrently \"elm-watch hot\" \"esbuild codemirror-bundle.js --bundle --outfile=build/codemirror-bundle.js --format=iife --watch\" \"node server.js\" \"sh scripts/open-if-not-open.sh http://localhost:8015\"",
+    "build": "npm run build:cm6 -- --minify && elm-watch make --optimize",
+    "buildnonoptimized": "npm run build:cm6 && elm-watch make",
+    "test": "npx elm-test"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "elm-tooling": "1.17.0",
+    "elm-watch": "^1.2.6",
+    "esbuild": "^0.27.4",
+    "express": "^4.21.0"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.20.1",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/lang-markdown": "^6.3.2",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/search": "^6.6.0",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.40.0",
+    "@replit/codemirror-indentation-markers": "^6.5.3",
+    "codemirror": "^6.0.2"
+  }
+}
