@@ -35,11 +35,13 @@ module Markdown.Block
 
 import Dict exposing (Dict)
 import List.Extra
-import Markdown.Config exposing (Options)
+import Markdown.Config exposing (Options, defaultOptions)
+import Markdown.Helpers exposing (References)
 import Markdown.Inline exposing (Inline(..), InlineContent(..))
 import Markdown.InlineParser as InlineParser
 import Markdown.RawBlock as RawBlock
 import Markdown.Wikilink exposing (WikilinkData)
+import Regex exposing (Regex)
 import SourceLocation exposing (ComparableRegion, Region)
 
 
@@ -117,12 +119,15 @@ type alias ParseResult b i =
 parse : Maybe Options -> String -> ParseResult b i
 parse maybeOptions str =
     let
-        rawBlocks : List (RawBlock.RawBlock b i)
-        rawBlocks =
-            RawBlock.parse maybeOptions str
+        options : Options
+        options =
+            Maybe.withDefault defaultOptions maybeOptions
+
+        ( refs, rawBlocks ) =
+            RawBlock.parseBlockStructure str
 
         ( blocks, _ ) =
-            assignRegions 1 rawBlocks
+            assignRegions options refs str True 1 0 rawBlocks
 
         blockIds : Dict String Region
         blockIds =
@@ -130,21 +135,21 @@ parse maybeOptions str =
     in
     { blocks = blocks
     , blockIds = blockIds
-    , wikilinks = Dict.empty -- TODO: populate after inline region tracking is implemented
+    , wikilinks = Dict.empty -- populated in Task 3
     }
 
 
 {-| Walk raw blocks and assign regions based on line counting.
 Returns the wrapped blocks and the next available row.
 -}
-assignRegions : Int -> List (RawBlock.RawBlock b i) -> ( List (Block b i), Int )
-assignRegions startRow rawBlocks =
+assignRegions : Options -> References -> String -> Bool -> Int -> Int -> List (RawBlock.RawBlock b i) -> ( List (Block b i), Int )
+assignRegions options refs source textAsParagraph startRow colOffset rawBlocks =
     rawBlocks
         |> List.foldl
             (\rawBlock ( acc, row ) ->
                 let
                     ( block, nextRow ) =
-                        fromRawBlock row rawBlock
+                        fromRawBlock options refs source textAsParagraph row colOffset rawBlock
                 in
                 ( block :: acc, nextRow )
             )
@@ -152,8 +157,8 @@ assignRegions startRow rawBlocks =
         |> Tuple.mapFirst List.reverse
 
 
-fromRawBlock : Int -> RawBlock.RawBlock b i -> ( Block b i, Int )
-fromRawBlock row rawBlock =
+fromRawBlock : Options -> References -> String -> Bool -> Int -> Int -> RawBlock.RawBlock b i -> ( Block b i, Int )
+fromRawBlock options refs source textAsParagraph row colOffset rawBlock =
     let
         lineCount : Int
         lineCount =
@@ -166,12 +171,49 @@ fromRawBlock row rawBlock =
             { start = { row = row, col = 1 }
             , end = { row = row + lineCount, col = 1 }
             }
+
+        parseInlinesAt : Int -> String -> List (Inline i)
+        parseInlinesAt startCol rawText =
+            InlineParser.parse options refs { row = row, col = startCol } rawText
     in
     case rawBlock of
+        RawBlock.Heading rawText lvl _ ->
+            let
+                headingContentCol =
+                    1 + colOffset + headingPrefixLength source row
+            in
+            ( Block { content = Heading rawText lvl (parseInlinesAt headingContentCol rawText), region = region }
+            , row + lineCount
+            )
+
+        RawBlock.Paragraph rawText _ ->
+            let
+                inlines =
+                    parseInlinesAt (1 + colOffset) rawText
+            in
+            if not textAsParagraph then
+                ( Block { content = PlainInlines inlines, region = region }, row + lineCount )
+
+            else
+                case inlines of
+                    [ Inline { content } ] ->
+                        case content of
+                            HtmlInline _ _ _ ->
+                                ( Block { content = PlainInlines inlines, region = region }, row + lineCount )
+
+                            _ ->
+                                ( Block { content = Paragraph rawText inlines, region = region }, row + lineCount )
+
+                    _ ->
+                        ( Block { content = Paragraph rawText inlines, region = region }, row + lineCount )
+
         RawBlock.BlockQuote childBlocks ->
             let
+                bqColOffset =
+                    colOffset + blockQuotePrefixWidth source row
+
                 ( wrappedChildren, _ ) =
-                    assignRegions row childBlocks
+                    assignRegions options refs source True row bqColOffset childBlocks
             in
             ( Block { content = BlockQuote wrappedChildren, region = region }
             , row + lineCount
@@ -179,13 +221,16 @@ fromRawBlock row rawBlock =
 
         RawBlock.List listBlock items ->
             let
+                listColOffset =
+                    colOffset + listBlock.indentLength
+
                 ( wrappedItems, _ ) =
                     items
                         |> List.foldl
                             (\itemBlocks ( itemsAcc, itemRow ) ->
                                 let
                                     ( wrappedItemBlocks, nextItemRow ) =
-                                        assignRegions itemRow itemBlocks
+                                        assignRegions options refs source listBlock.isLoose itemRow listColOffset itemBlocks
                                 in
                                 ( wrappedItemBlocks :: itemsAcc, nextItemRow )
                             )
@@ -199,9 +244,14 @@ fromRawBlock row rawBlock =
         RawBlock.Custom customBlock childBlocks ->
             let
                 ( wrappedChildren, _ ) =
-                    assignRegions row childBlocks
+                    assignRegions options refs source True row colOffset childBlocks
             in
             ( Block { content = Custom customBlock wrappedChildren, region = region }
+            , row + lineCount
+            )
+
+        RawBlock.PlainInlines _ ->
+            ( Block { content = PlainInlines [], region = region }
             , row + lineCount
             )
 
@@ -242,6 +292,63 @@ fromRawBlockContent rawBlock =
 
         RawBlock.Custom _ _ ->
             BlankLine "[BUG: Custom reached fromRawBlockContent]"
+
+
+{-| Compute the ATX heading prefix length (e.g., "# " = 2, "## " = 3).
+For setext headings (no `#` prefix), returns 0.
+-}
+headingPrefixLength : String -> Int -> Int
+headingPrefixLength source row =
+    let
+        sourceLine =
+            getSourceLine source row
+    in
+    case Regex.findAtMost 1 headingPrefixRegex sourceLine of
+        match :: _ ->
+            String.length match.match
+
+        [] ->
+            -- Setext heading or fallback: no prefix
+            0
+
+
+headingPrefixRegex : Regex
+headingPrefixRegex =
+    Regex.fromString "^ {0,3}#{1,6}[ \\t]+"
+        |> Maybe.withDefault Regex.never
+
+
+{-| Compute the blockquote prefix width for a given source line.
+-}
+blockQuotePrefixWidth : String -> Int -> Int
+blockQuotePrefixWidth source row =
+    let
+        sourceLine =
+            getSourceLine source row
+    in
+    case Regex.findAtMost 1 blockQuotePrefixRegex sourceLine of
+        match :: _ ->
+            String.length match.match
+
+        [] ->
+            2
+
+
+blockQuotePrefixRegex : Regex
+blockQuotePrefixRegex =
+    Regex.fromString "^ {0,3}>[ ]?"
+        |> Maybe.withDefault Regex.never
+
+
+{-| Get a 1-based source line from the original source string.
+-}
+getSourceLine : String -> Int -> String
+getSourceLine source row =
+    source
+        |> String.split "\n"
+        |> List.drop (row - 1)
+        |> List.head
+        |> Maybe.withDefault ""
 
 
 rawBlockLineCount : RawBlock.RawBlock b i -> Int

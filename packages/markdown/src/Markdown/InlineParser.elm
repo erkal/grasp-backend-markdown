@@ -109,16 +109,34 @@ reverseTokens model =
 -- Parser
 
 
-parse : Options -> References -> String -> List (Inline i)
-parse options refs rawText =
-    String.trim rawText
+parse : Options -> References -> Position -> String -> List (Inline i)
+parse options refs startPosition rawText =
+    let
+        trimmedText =
+            String.trim rawText
+
+        trimLeftCount =
+            String.length rawText - String.length (String.trimLeft rawText)
+
+        trimmedStartPos =
+            if trimLeftCount == 0 then
+                startPosition
+
+            else
+                offsetToPosition startPosition rawText trimLeftCount
+
+        scopeOffsetToPos : Int -> Position
+        scopeOffsetToPos charOffset =
+            offsetToPosition trimmedStartPos trimmedText charOffset
+    in
+    trimmedText
         |> initParser options refs
         |> tokenize
         |> tokensToMatches
         |> organizeParserMatches
         |> parseText
         |> .matches
-        |> matchesToInlines
+        |> matchesToInlines scopeOffsetToPos
 
 
 parseText : Parser -> Parser
@@ -2035,55 +2053,61 @@ lineBreakTTM ( tokens, model ) =
 -- Matches to Inline
 
 
-matchesToInlines : List Match -> List (Inline customInline)
-matchesToInlines matches =
-    List.map matchToInline matches
+matchesToInlines : (Int -> Position) -> List Match -> List (Inline customInline)
+matchesToInlines scopeOffsetToPos matches =
+    List.map (matchToInline scopeOffsetToPos) matches
 
 
-matchToInline : Match -> Inline customInline
-matchToInline (Match match) =
+matchToInline : (Int -> Position) -> Match -> Inline customInline
+matchToInline scopeOffsetToPos (Match match) =
+    let
+        region : Region
+        region =
+            { start = scopeOffsetToPos match.start
+            , end = scopeOffsetToPos match.end
+            }
+
+        childScopeOffsetToPos : Int -> Position
+        childScopeOffsetToPos childOffset =
+            scopeOffsetToPos (match.textStart + childOffset)
+
+        childInlines : List (Inline customInline)
+        childInlines =
+            matchesToInlines childScopeOffsetToPos match.matches
+    in
     case match.type_ of
         NormalType ->
-            wrapInline (Text match.text)
+            Inline { content = Text match.text, region = region }
 
         HardLineBreakType ->
-            wrapInline HardLineBreak
+            Inline { content = HardLineBreak, region = region }
 
         CodeType ->
-            wrapInline (CodeInline match.text)
+            Inline { content = CodeInline match.text, region = region }
 
         AutolinkType ( text, url ) ->
-            wrapInline (Link url Nothing [ wrapInline (Text text) ])
+            Inline
+                { content =
+                    Link url
+                        Nothing
+                        [ Inline { content = Text text, region = region } ]
+                , region = region
+                }
 
         LinkType ( url, maybeTitle ) ->
-            wrapInline
-                (Link url
-                    maybeTitle
-                    (matchesToInlines match.matches)
-                )
+            Inline { content = Link url maybeTitle childInlines, region = region }
 
         ImageType ( url, maybeTitle ) ->
-            wrapInline
-                (Image url
-                    maybeTitle
-                    (matchesToInlines match.matches)
-                )
+            Inline { content = Image url maybeTitle childInlines, region = region }
 
         HtmlType model ->
-            wrapInline
-                (HtmlInline model.tag
-                    model.attributes
-                    (matchesToInlines match.matches)
-                )
+            Inline { content = HtmlInline model.tag model.attributes childInlines, region = region }
 
         EmphasisType length ->
-            wrapInline
-                (Emphasis length
-                    (matchesToInlines match.matches)
-                )
+            Inline { content = Emphasis length childInlines, region = region }
 
         WikilinkType data ->
-            wrapInline (Wikilink data)
+            Inline { content = Wikilink data, region = region }
 
 
 

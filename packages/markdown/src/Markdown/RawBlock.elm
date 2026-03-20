@@ -6,6 +6,7 @@ module Markdown.RawBlock
         , ListBlock
         , ListType(..)
         , parse
+        , parseBlockStructure
         )
 
 {-| Internal block parsing.
@@ -24,10 +25,9 @@ Markdown.Block wraps the result with Region metadata.
 -}
 
 import Dict
-import Markdown.Config exposing (Options, defaultOptions)
+import Markdown.Config exposing (Options)
 import Markdown.Helpers exposing (References, formatStr, ifError, indentLength, indentLine, insideSquareBracketRegex, prepareRefLabel, returnFirstJust, titleRegex)
-import Markdown.Inline exposing (Inline(..), InlineContent(..))
-import Markdown.InlineParser as InlineParser
+import Markdown.Inline exposing (Inline)
 import Regex exposing (Regex)
 
 
@@ -113,11 +113,15 @@ If `Maybe Options` is `Nothing`, `Config.defaultOptions` will be used.
 
 -}
 parse : Maybe Options -> String -> List (RawBlock b i)
-parse maybeOptions =
+parse _ str =
+    parseBlockStructure str |> Tuple.second
+
+
+parseBlockStructure : String -> ( References, List (RawBlock b i) )
+parseBlockStructure =
     String.lines
         >> (\a -> incorporateLines a [])
         >> parseReferences Dict.empty
-        >> parseInlines maybeOptions True
 
 
 incorporateLines : List String -> List (RawBlock b i) -> List (RawBlock b i)
@@ -1047,67 +1051,6 @@ maybeLinkMatch rawText =
 -- Parse Inlines
 
 
-parseInlines : Maybe Options -> Bool -> ( References, List (RawBlock b i) ) -> List (RawBlock b i)
-parseInlines maybeOptions textAsParagraph ( refs, blocks ) =
-    List.map
-        (parseInline maybeOptions textAsParagraph refs)
-        blocks
-
-
-parseInline : Maybe Options -> Bool -> References -> RawBlock b i -> RawBlock b i
-parseInline maybeOptions textAsParagraph refs block =
-    let
-        options : Options
-        options =
-            Maybe.withDefault defaultOptions maybeOptions
-    in
-    case block of
-        Heading rawText lvl _ ->
-            InlineParser.parse options refs rawText
-                |> Heading rawText lvl
-
-        Paragraph rawText _ ->
-            let
-                inlines : List (Inline i)
-                inlines =
-                    InlineParser.parse options refs rawText
-            in
-            case inlines of
-                (Inline { content }) :: [] ->
-                    case content of
-                        HtmlInline _ _ _ ->
-                            PlainInlines inlines
-
-                        _ ->
-                            if textAsParagraph then
-                                Paragraph rawText inlines
-
-                            else
-                                PlainInlines inlines
-
-                _ ->
-                    if textAsParagraph then
-                        Paragraph rawText inlines
-
-                    else
-                        PlainInlines inlines
-
-        BlockQuote blocks ->
-            parseInlines maybeOptions True ( refs, blocks )
-                |> BlockQuote
-
-        List model items ->
-            parseInlines maybeOptions model.isLoose
-                << (\b -> ( refs, b ))
-                |> (\a -> List.map a items)
-                |> List model
-
-        Custom customBlock blocks ->
-            parseInlines maybeOptions True ( refs, blocks )
-                |> Custom customBlock
-
-        _ ->
-            block
 
 
 
