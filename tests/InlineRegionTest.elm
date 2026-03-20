@@ -92,6 +92,23 @@ suite =
                         |> List.map .row
                         |> Expect.equal [ 3 ]
             ]
+        , describe "Wikilink collection"
+            [ test "wikilinks dict is populated" <|
+                \() ->
+                    "See [[basics]] and [[other]]"
+                        |> Markdown.parse Nothing
+                        |> .wikilinks
+                        |> Dict.size
+                        |> Expect.equal 2
+            , test "wikilink target is correct in dict" <|
+                \() ->
+                    "See [[basics]]"
+                        |> Markdown.parse Nothing
+                        |> .wikilinks
+                        |> Dict.values
+                        |> List.map .target
+                        |> Expect.equal [ "basics" ]
+            ]
         ]
 
 

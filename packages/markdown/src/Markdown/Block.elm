@@ -42,7 +42,7 @@ import Markdown.InlineParser as InlineParser
 import Markdown.RawBlock as RawBlock
 import Markdown.Wikilink exposing (WikilinkData)
 import Regex exposing (Regex)
-import SourceLocation exposing (ComparableRegion, Region)
+import SourceLocation exposing (ComparableRegion, Region, toComparableRegion)
 
 
 -- TYPES
@@ -135,7 +135,10 @@ parse maybeOptions str =
     in
     { blocks = blocks
     , blockIds = blockIds
-    , wikilinks = Dict.empty -- populated in Task 3
+    , wikilinks =
+            blocks
+                |> List.concatMap collectWikilinks
+                |> Dict.fromList
     }
 
 
@@ -533,6 +536,21 @@ isBlockIdChar c =
         || Char.isLower c
         || Char.isUpper c
         || c == '-'
+
+
+
+collectWikilinks : Block b i -> List ( ComparableRegion, WikilinkData )
+collectWikilinks block =
+    queryInlines
+        (\(Inline { content, region }) ->
+            case content of
+                Wikilink data ->
+                    [ ( toComparableRegion region, data ) ]
+
+                _ ->
+                    []
+        )
+        block
 
 
 
