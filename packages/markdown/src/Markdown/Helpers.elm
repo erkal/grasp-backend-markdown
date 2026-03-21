@@ -122,10 +122,14 @@ escapableRegex =
 
 formatStr : String -> String
 formatStr str =
-    replaceEscapable str
-        |> Entity.replaceEntities
-        |> Entity.replaceDecimals
-        |> Entity.replaceHexadecimals
+    if not (String.contains "\\" str || String.contains "&" str) then
+        str
+
+    else
+        replaceEscapable str
+            |> Entity.replaceEntities
+            |> Entity.replaceDecimals
+            |> Entity.replaceHexadecimals
 
 
 replaceEscapable : String -> String
