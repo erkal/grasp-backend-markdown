@@ -127,12 +127,8 @@ parse maybeOptions str =
         options =
             Maybe.withDefault defaultOptions maybeOptions
 
-        ( refs, rawBlocks ) =
+        ( refs, rawBlocks, sourceLines ) =
             RawBlock.parseBlockStructure str
-
-        sourceLines : Array String
-        sourceLines =
-            str |> String.split "\n" |> Array.fromList
 
         ( blocks, _ ) =
             assignRegions options refs sourceLines True 1 0 rawBlocks

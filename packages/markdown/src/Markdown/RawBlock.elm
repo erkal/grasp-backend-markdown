@@ -26,6 +26,7 @@ Markdown.Block wraps the result with Region metadata.
 
 -}
 
+import Array exposing (Array)
 import Dict
 import Markdown.Config exposing (Options)
 import Markdown.Helpers exposing (References, formatStr, ifError, indentLength, indentLine, insideSquareBracketRegex, prepareRefLabel, returnFirstJust, titleRegex)
@@ -129,14 +130,26 @@ If `Maybe Options` is `Nothing`, `Config.defaultOptions` will be used.
 -}
 parse : Maybe Options -> String -> List (RawBlock b i)
 parse _ str =
-    parseBlockStructure str |> Tuple.second
+    let
+        ( _, blocks, _ ) =
+            parseBlockStructure str
+    in
+    blocks
 
 
-parseBlockStructure : String -> ( References, List (RawBlock b i) )
-parseBlockStructure =
-    String.lines
-        >> (\a -> incorporateLines a [])
-        >> parseReferences Dict.empty
+parseBlockStructure : String -> ( References, List (RawBlock b i), Array String )
+parseBlockStructure str =
+    let
+        lines =
+            String.lines str
+
+        sourceLines =
+            Array.fromList lines
+    in
+    lines
+        |> (\a -> incorporateLines a [])
+        |> parseReferences Dict.empty
+        |> (\( refs, blocks ) -> ( refs, blocks, sourceLines ))
 
 
 incorporateLines : List String -> List (RawBlock b i) -> List (RawBlock b i)
