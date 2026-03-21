@@ -8,8 +8,7 @@
     "build": "npm run build:cm6 -- --minify && npm run build:ws -- --minify && elm-watch make --optimize",
     "buildnonoptimized": "npm run build:cm6 && npm run build:ws && elm-watch make",
     "test": "elm-test",
-    "bench": "node benchmarks/gen-fixture.js && cd benchmarks && elm make src/Main.elm --optimize --output=build/benchmark.js && node run.js",
-    "bench:browser": "node benchmarks/gen-fixture.js && cd benchmarks && elm make src/Main.elm --output=build/benchmark.js && node serve.js"
+    "bench": "node benchmarks/gen-fixture.js && cd benchmarks && elm make src/Main.elm --optimize --output=build/benchmark.js && node run.js"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
