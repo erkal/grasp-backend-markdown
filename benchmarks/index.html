@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Markdown Parser Benchmark</title>
+  <style>
+    body {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: #1e1e1e; color: #d4d4d4;
+      padding: 24px; font-size: 13px;
+    }
+    h1 { color: #4ec9b0; font-size: 16px; margin-bottom: 16px; }
+    pre { margin: 0; white-space: pre-wrap; line-height: 1.6; }
+    button {
+      background: #3c3c3c; color: #d4d4d4; border: 1px solid #555;
+      padding: 6px 16px; cursor: pointer; font-family: inherit; font-size: 13px;
+      margin-bottom: 16px;
+    }
+    button:hover { background: #4c4c4c; }
+    button:disabled { opacity: 0.5; cursor: default; }
+  </style>
+</head>
+<body>
+  <h1>Markdown Parser Benchmark</h1>
+  <button id="run" onclick="runAll()">Run All (3 iterations each)</button>
+  <pre id="out">Loading...</pre>
+  <script src="/benchmarks/build/benchmark.js"></script>
+  <script>
+    const out = document.getElementById("out");
+    const btn = document.getElementById("run");
+    const ITERS = 3;
+
+    function log(s) { out.textContent += s + "\n"; }
+    function pad(s, n) { return s + " ".repeat(Math.max(0, n - s.length)); }
+
+    let app;
+    let docs = [];
+
+    function bench(text) {
+      return new Promise(resolve => {
+        function handler() {
+          app.ports.parseResult.unsubscribe(handler);
+          resolve(performance.now() - t0);
+        }
+        app.ports.parseResult.subscribe(handler);
+        const t0 = performance.now();
+        app.ports.parseThis.send(text);
+      });
+    }
+
+    async function boot() {
+      try {
+        app = Elm.Main.init({ flags: null });
+      } catch (e) {
+        out.textContent = "Elm init failed: " + e.message;
+        return;
+      }
+
+      let resp;
+      try {
+        resp = await fetch("/test-project/markdown-example-50x.md");
+      } catch (e) {
+        out.textContent = "Fetch failed: " + e.message;
+        return;
+      }
+
+      if (!resp.ok) {
+        out.textContent = "Could not load markdown-example-50x.md (HTTP " + resp.status + ")";
+        return;
+      }
+
+      const base = await resp.text();
+      const lines = base.split("\n");
+
+      docs = [
+        { name: "1x  (735 lines)",   text: lines.slice(0, 735).join("\n") },
+        { name: "5x  (3.7K lines)",  text: lines.slice(0, 3675).join("\n") },
+        { name: "10x (7.4K lines)",  text: lines.slice(0, 7350).join("\n") },
+        { name: "25x (18K lines)",   text: lines.slice(0, 18375).join("\n") },
+        { name: "50x (37K lines)",   text: base },
+      ];
+
+      out.textContent = "Ready. Click 'Run All'.\n";
+    }
+
+    async function runAll() {
+      if (docs.length === 0) return;
+      btn.disabled = true;
+      out.textContent = "";
+      log(pad("document", 24) + pad("lines", 10) + pad("median", 14) + "all runs");
+      log("-".repeat(70));
+
+      for (const doc of docs) {
+        const lineCount = doc.text.split("\n").length;
+        const times = [];
+        for (let i = 0; i < ITERS; i++) {
+          times.push(await bench(doc.text));
+        }
+        times.sort((a, b) => a - b);
+        const median = times[Math.floor(times.length / 2)];
+        const all = times.map(t => t.toFixed(1)).join(", ");
+
+        log(
+          pad(doc.name, 24) +
+          pad(String(lineCount), 10) +
+          pad(median.toFixed(1) + " ms", 14) +
+          all + " ms"
+        );
+      }
+
+      log("\ndone.");
+      btn.disabled = false;
+    }
+
+    boot();
+  </script>
+</body>
+</html>
