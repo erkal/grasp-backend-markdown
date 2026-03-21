@@ -261,41 +261,21 @@ type Meaning
 
 findToken : (Token -> Bool) -> List Token -> Maybe ( Token, List Token, List Token )
 findToken isToken tokens =
-    let
-        search : Token -> ( Maybe Token, List Token, List Token ) -> ( Maybe Token, List Token, List Token )
-        search token ( maybeToken, innerTokens, remainTokens ) =
-            case maybeToken of
-                Nothing ->
-                    if isToken token then
-                        ( Just token
-                        , innerTokens
-                        , []
-                        )
-                    else
-                        ( Nothing
-                        , token :: innerTokens
-                        , []
-                        )
+    findTokenHelp isToken [] tokens
 
-                Just _ ->
-                    ( maybeToken
-                    , innerTokens
-                    , token :: remainTokens
-                    )
 
-        return : ( Maybe Token, List Token, List Token ) -> Maybe ( Token, List Token, List Token )
-        return ( maybeToken, innerTokens, remainTokens ) =
-            maybeToken
-                |> Maybe.map
-                    (\token ->
-                        ( token
-                        , List.reverse innerTokens
-                        , List.reverse remainTokens
-                        )
-                    )
-    in
-    List.foldl search ( Nothing, [], [] ) tokens
-        |> return
+findTokenHelp : (Token -> Bool) -> List Token -> List Token -> Maybe ( Token, List Token, List Token )
+findTokenHelp isToken innerTokens tokens =
+    case tokens of
+        [] ->
+            Nothing
+
+        token :: rest ->
+            if isToken token then
+                Just ( token, List.reverse innerTokens, rest )
+
+            else
+                findTokenHelp isToken (token :: innerTokens) rest
 
 
 tokenPairToMatch : Parser -> (String -> String) -> Type -> Token -> Token -> List Token -> Match
