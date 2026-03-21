@@ -346,19 +346,14 @@ rawBlockLineCount rawBlock =
 
         RawBlock.Heading rawText _ _ ->
             let
-                textLines : Int
-                textLines =
-                    rawText |> String.lines |> List.length
+                newlineCount =
+                    String.indexes "\n" rawText |> List.length
             in
-            if textLines > 1 then
-                -- Multi-line raw text means setext heading (text + underline)
-                textLines + 1
+            if newlineCount > 0 then
+                -- Multi-line raw text means setext heading (text lines + underline)
+                newlineCount + 2
 
             else
-                -- Single-line: could be ATX or single-line setext.
-                -- Single-line setext is indistinguishable from ATX without
-                -- parser metadata, so we accept a possible off-by-one for
-                -- single-line setext headings.
                 1
 
         RawBlock.CodeBlock codeBlock codeLines ->
