@@ -133,16 +133,12 @@ parse maybeOptions str =
         ( blocks, _ ) =
             assignRegions options refs sourceLines True 1 0 rawBlocks
 
-        blockIds : Dict String Region
-        blockIds =
-            blocks |> List.concatMap collectBlockIds |> Dict.fromList
+        ( idPairs, wlPairs ) =
+            collectBlockIdsAndWikilinks blocks
     in
     { blocks = blocks
-    , blockIds = blockIds
-    , wikilinks =
-            blocks
-                |> List.concatMap collectWikilinks
-                |> Dict.fromList
+    , blockIds = Dict.fromList idPairs
+    , wikilinks = Dict.fromList wlPairs
     }
 
 
@@ -432,41 +428,77 @@ fromRawListType raw =
 -- BLOCK ID EXTRACTION
 
 
-collectBlockIds : Block b i -> List ( String, Region )
-collectBlockIds (Block blockRec) =
-    let
-        selfId : List ( String, Region )
-        selfId =
-            case blockRec.content of
-                Paragraph rawText _ ->
-                    extractBlockId rawText
-                        |> Maybe.map (\id_ -> [ ( id_, blockRec.region ) ])
-                        |> Maybe.withDefault []
+collectBlockIdsAndWikilinks :
+    List (Block b i)
+    -> ( List ( String, Region ), List ( Region, WikilinkData ) )
+collectBlockIdsAndWikilinks blocks =
+    List.foldl collectFromBlock ( [], [] ) blocks
 
-                Heading rawText _ _ ->
-                    extractBlockId rawText
+
+collectFromBlock :
+    Block b i
+    -> ( List ( String, Region ), List ( Region, WikilinkData ) )
+    -> ( List ( String, Region ), List ( Region, WikilinkData ) )
+collectFromBlock (Block blockRec) ( ids, wls ) =
+    let
+        ( selfId, selfWls ) =
+            case blockRec.content of
+                Paragraph rawText inlines ->
+                    ( extractBlockId rawText
                         |> Maybe.map (\id_ -> [ ( id_, blockRec.region ) ])
                         |> Maybe.withDefault []
+                    , inlines |> List.concatMap (InlineParser.query wikilinkFromInline)
+                    )
+
+                Heading rawText _ inlines ->
+                    ( extractBlockId rawText
+                        |> Maybe.map (\id_ -> [ ( id_, blockRec.region ) ])
+                        |> Maybe.withDefault []
+                    , inlines |> List.concatMap (InlineParser.query wikilinkFromInline)
+                    )
+
+                PlainInlines inlines ->
+                    ( []
+                    , inlines |> List.concatMap (InlineParser.query wikilinkFromInline)
+                    )
 
                 _ ->
-                    []
+                    ( [], [] )
 
-        childIds : List ( String, Region )
-        childIds =
+        ( childIds, childWls ) =
             case blockRec.content of
-                BlockQuote blocks ->
-                    blocks |> List.concatMap collectBlockIds
+                BlockQuote children ->
+                    collectBlockIdsAndWikilinks children
 
                 List _ items ->
-                    items |> List.concatMap (List.concatMap collectBlockIds)
+                    List.foldl
+                        (\item ( accIds, accWls ) ->
+                            let
+                                ( itemIds, itemWls ) =
+                                    collectBlockIdsAndWikilinks item
+                            in
+                            ( itemIds ++ accIds, itemWls ++ accWls )
+                        )
+                        ( [], [] )
+                        items
 
-                Custom _ blocks ->
-                    blocks |> List.concatMap collectBlockIds
+                Custom _ children ->
+                    collectBlockIdsAndWikilinks children
 
                 _ ->
-                    []
+                    ( [], [] )
     in
-    selfId ++ childIds
+    ( selfId ++ childIds ++ ids, selfWls ++ childWls ++ wls )
+
+
+wikilinkFromInline : Inline i -> List ( Region, WikilinkData )
+wikilinkFromInline (Inline { content, region }) =
+    case content of
+        Wikilink data ->
+            [ ( region, data ) ]
+
+        _ ->
+            []
 
 
 extractBlockId : String -> Maybe String
@@ -507,21 +539,6 @@ isBlockIdChar c =
         || Char.isLower c
         || Char.isUpper c
         || c == '-'
-
-
-
-collectWikilinks : Block b i -> List ( Region, WikilinkData )
-collectWikilinks block =
-    queryInlines
-        (\(Inline { content, region }) ->
-            case content of
-                Wikilink data ->
-                    [ ( region, data ) ]
-
-                _ ->
-                    []
-        )
-        block
 
 
 
