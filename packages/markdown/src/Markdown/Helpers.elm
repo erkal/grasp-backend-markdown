@@ -104,10 +104,7 @@ indentLine n str =
 
 stripLeadingSpaces : Int -> Int -> String -> String
 stripLeadingSpaces maxStrip pos str =
-    if pos >= maxStrip then
-        String.dropLeft pos str
-
-    else if String.slice pos (pos + 1) str == " " then
+    if pos < maxStrip && String.slice pos (pos + 1) str == " " then
         stripLeadingSpaces maxStrip (pos + 1) str
 
     else if pos == 0 then

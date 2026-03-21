@@ -38,15 +38,9 @@ import Regex exposing (Regex)
 
 {-| The block type.
 
-  - **BlankLine** | _Text_
-  - **ThematicBreak**
-  - **Heading** | _Raw text_ | _Level_ | _Inlines_
-  - **CodeBlock** | _CodeBlock_ | _Code_
-  - **Paragraph** | _Raw text_ | _Inlines_
-  - **BlockQuote** | _Blocks_
-  - **List** | _ListBlock_ | _Items_
-  - **PlainInlines** | _Inlines_
-  - **Custom** | _Custom type_ | _Blocks_
+Paragraph and CodeBlock store lines in reverse order during block
+building (newest line first). Use joinParagraphLines / joinCodeLines
+to get the final text.
 
 -}
 type RawBlock b i
@@ -64,6 +58,11 @@ type RawBlock b i
 joinParagraphLines : List String -> String
 joinParagraphLines lines =
     List.reverse lines |> String.join "\n"
+
+
+splitParagraphLines : String -> List String
+splitParagraphLines text =
+    String.lines text |> List.reverse
 
 
 joinCodeLines : List String -> String
@@ -471,7 +470,7 @@ resumeIndentedCodeBlock codeLine ( remainBlocks, blankLines ) =
     case remainBlocks of
         (CodeBlock Indented codeLines) :: remainBlocksTail ->
             let
-                -- blankLines is in chronological order; reverse for our reversed-list representation
+                -- blankLines arrives oldest-first from blocksAfterBlankLines; reverse for our reversed-list representation
                 blankCodeLines : List String
                 blankCodeLines =
                     blankLines
@@ -919,7 +918,7 @@ parseReferencesHelp block ( refs, parsedAST ) =
             case maybeUpdtText of
                 Just updtText ->
                     ( updtRefs
-                    , Paragraph (String.lines updtText |> List.reverse) []
+                    , Paragraph (splitParagraphLines updtText) []
                         :: parsedAST
                     )
 
