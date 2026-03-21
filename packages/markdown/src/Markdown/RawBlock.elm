@@ -906,24 +906,37 @@ parseReferencesHelp block ( refs, parsedAST ) =
     case block of
         Paragraph lines _ ->
             let
-                rawText =
-                    joinParagraphLines lines
+                mightBeRef =
+                    case listLast lines of
+                        Just firstLine ->
+                            String.startsWith "[" (String.trimLeft firstLine)
 
-                ( paragraphRefs, maybeUpdtText ) =
-                    parseReference Dict.empty rawText
-
-                updtRefs =
-                    Dict.union paragraphRefs refs
+                        Nothing ->
+                            False
             in
-            case maybeUpdtText of
-                Just updtText ->
-                    ( updtRefs
-                    , Paragraph (splitParagraphLines updtText) []
-                        :: parsedAST
-                    )
+            if not mightBeRef then
+                ( refs, block :: parsedAST )
 
-                Nothing ->
-                    ( updtRefs, parsedAST )
+            else
+                let
+                    rawText =
+                        joinParagraphLines lines
+
+                    ( paragraphRefs, maybeUpdtText ) =
+                        parseReference Dict.empty rawText
+
+                    updtRefs =
+                        Dict.union paragraphRefs refs
+                in
+                case maybeUpdtText of
+                    Just updtText ->
+                        ( updtRefs
+                        , Paragraph (splitParagraphLines updtText) []
+                            :: parsedAST
+                        )
+
+                    Nothing ->
+                        ( updtRefs, parsedAST )
 
         List model items ->
             let
@@ -1070,6 +1083,20 @@ maybeLinkMatch rawText =
                 else
                     Just linkMatch
             )
+
+
+
+listLast : List a -> Maybe a
+listLast list =
+    case list of
+        [] ->
+            Nothing
+
+        [ x ] ->
+            Just x
+
+        _ :: rest ->
+            listLast rest
 
 
 
