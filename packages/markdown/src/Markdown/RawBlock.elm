@@ -5,6 +5,8 @@ module Markdown.RawBlock
         , Fence
         , ListBlock
         , ListType(..)
+        , joinCodeLines
+        , joinParagraphLines
         , parse
         , parseBlockStructure
         )
@@ -51,12 +53,26 @@ type RawBlock b i
     = BlankLine String
     | ThematicBreak
     | Heading String Int (List (Inline i))
-    | CodeBlock CodeBlock String
-    | Paragraph String (List (Inline i))
+    | CodeBlock CodeBlock (List String) -- reversed lines (no trailing \n)
+    | Paragraph (List String) (List (Inline i)) -- reversed lines
     | BlockQuote (List (RawBlock b i))
     | List ListBlock (List (List (RawBlock b i)))
     | PlainInlines (List (Inline i))
     | Custom b (List (RawBlock b i))
+
+
+joinParagraphLines : List String -> String
+joinParagraphLines lines =
+    List.reverse lines |> String.join "\n"
+
+
+joinCodeLines : List String -> String
+joinCodeLines codeLines =
+    if List.isEmpty codeLines then
+        ""
+
+    else
+        (List.reverse codeLines |> String.join "\n") ++ "\n"
 
 
 {-| CodeBlock type.
@@ -143,8 +159,8 @@ incorporateLine rawLine ast =
     case ast of
         -- No need to typify the line if Fenced Code
         -- is open, just check for closing fence.
-        (CodeBlock (Fenced True fence) code) :: astTail ->
-            continueOrCloseCodeFence fence code rawLine
+        (CodeBlock (Fenced True fence) codeLines) :: astTail ->
+            continueOrCloseCodeFence fence codeLines rawLine
                 |> (\a -> (::) a astTail)
 
         (List model items) :: astTail ->
@@ -223,10 +239,8 @@ blankLineRegex =
 parseBlankLine : List (RawBlock b i) -> Regex.Match -> List (RawBlock b i)
 parseBlankLine ast match =
     case ast of
-        (CodeBlock (Fenced True fence) code) :: astTail ->
-            code
-                ++ "\n"
-                |> CodeBlock (Fenced True fence)
+        (CodeBlock (Fenced True fence) codeLines) :: astTail ->
+            CodeBlock (Fenced True fence) ("" :: codeLines)
                 |> (\a -> (::) a astTail)
 
         (List model items) :: astTail ->
@@ -318,8 +332,8 @@ parseSetextHeadingLine : String -> List (RawBlock b i) -> ( Int, String ) -> May
 parseSetextHeadingLine rawLine ast ( lvl, delimiter ) =
     case ast of
         -- Only occurs after a paragraph
-        (Paragraph rawText _) :: astTail ->
-            Heading rawText lvl []
+        (Paragraph lines _) :: astTail ->
+            Heading (joinParagraphLines lines) lvl []
                 :: astTail
                 |> Just
 
@@ -413,11 +427,8 @@ parseIndentedCodeLine : List (RawBlock b i) -> String -> List (RawBlock b i)
 parseIndentedCodeLine ast codeLine =
     case ast of
         -- Continue indented code block
-        (CodeBlock Indented codeStr) :: astTail ->
-            codeStr
-                ++ codeLine
-                ++ "\n"
-                |> CodeBlock Indented
+        (CodeBlock Indented codeLines) :: astTail ->
+            CodeBlock Indented (codeLine :: codeLines)
                 |> (\a -> (::) a astTail)
 
         -- Possible blankline inside a indented code block
@@ -426,9 +437,7 @@ parseIndentedCodeLine ast codeLine =
                 |> blocksAfterBlankLines astTail
                 |> resumeIndentedCodeBlock codeLine
                 |> Maybe.withDefault
-                    (codeLine
-                        ++ "\n"
-                        |> CodeBlock Indented
+                    (CodeBlock Indented [ codeLine ]
                         |> (\a -> (::) a ast)
                     )
 
@@ -436,9 +445,7 @@ parseIndentedCodeLine ast codeLine =
         _ ->
             maybeContinueParagraph codeLine ast
                 |> Maybe.withDefault
-                    (codeLine
-                        ++ "\n"
-                        |> CodeBlock Indented
+                    (CodeBlock Indented [ codeLine ]
                         |> (\a -> (::) a ast)
                     )
 
@@ -462,13 +469,16 @@ blocksAfterBlankLines ast blankLines =
 resumeIndentedCodeBlock : String -> ( List (RawBlock b i), List String ) -> Maybe (List (RawBlock b i))
 resumeIndentedCodeBlock codeLine ( remainBlocks, blankLines ) =
     case remainBlocks of
-        (CodeBlock Indented codeStr) :: remainBlocksTail ->
-            blankLines
-                |> List.map (\bl -> indentLine 4 bl ++ "\n")
-                |> String.concat
-                |> (++) codeStr
-                |> (\a -> (++) a (codeLine ++ "\n"))
-                |> CodeBlock Indented
+        (CodeBlock Indented codeLines) :: remainBlocksTail ->
+            let
+                -- blankLines is in chronological order; reverse for our reversed-list representation
+                blankCodeLines : List String
+                blankCodeLines =
+                    blankLines
+                        |> List.map (\bl -> indentLine 4 bl)
+                        |> List.reverse
+            in
+            CodeBlock Indented (codeLine :: blankCodeLines ++ codeLines)
                 |> (\a -> (::) a remainBlocksTail)
                 |> Just
 
@@ -485,7 +495,7 @@ checkOpenCodeFenceLine ( rawLine, ast ) =
     Regex.findAtMost 1 openCodeFenceLineRegex rawLine
         |> List.head
         |> Maybe.andThen extractOpenCodeFenceRM
-        |> Maybe.map (\f -> CodeBlock f "")
+        |> Maybe.map (\f -> CodeBlock f [])
         |> Maybe.map (\a -> (::) a ast)
         |> Result.fromMaybe ( rawLine, ast )
 
@@ -525,15 +535,13 @@ extractOpenCodeFenceRM match =
             Nothing
 
 
-continueOrCloseCodeFence : Fence -> String -> String -> RawBlock b i
-continueOrCloseCodeFence fence previousCode rawLine =
+continueOrCloseCodeFence : Fence -> List String -> String -> RawBlock b i
+continueOrCloseCodeFence fence previousCodeLines rawLine =
     if isCloseFenceLine fence rawLine then
-        CodeBlock (Fenced False fence) previousCode
+        CodeBlock (Fenced False fence) previousCodeLines
+
     else
-        previousCode
-            ++ indentLine fence.indentLength rawLine
-            ++ "\n"
-            |> CodeBlock (Fenced True fence)
+        CodeBlock (Fenced True fence) (indentLine fence.indentLength rawLine :: previousCodeLines)
 
 
 isCloseFenceLine : Fence -> String -> Bool
@@ -773,11 +781,11 @@ parseListLine rawLine ast ( listBlock, listRawLine ) =
             else
                 newList
 
-        (Paragraph rawText inlines) :: astTail ->
+        (Paragraph lines inlines) :: astTail ->
             case parsedRawLine of
                 (BlankLine _) :: [] ->
                     -- Empty list item cannot interrupt a paragraph.
-                    addToParagraph rawText rawLine
+                    addToParagraph lines rawLine
                         :: astTail
 
                 _ ->
@@ -787,7 +795,7 @@ parseListLine rawLine ast ( listBlock, listRawLine ) =
                             newList
 
                         Ordered int ->
-                            addToParagraph rawText rawLine
+                            addToParagraph lines rawLine
                                 :: astTail
 
                         _ ->
@@ -827,13 +835,13 @@ parseTextLine : String -> List (RawBlock b i) -> List (RawBlock b i)
 parseTextLine rawLine ast =
     maybeContinueParagraph rawLine ast
         |> Maybe.withDefault
-            (Paragraph (formatParagraphLine rawLine) [] :: ast)
+            (Paragraph [ formatParagraphLine rawLine ] [] :: ast)
 
 
-addToParagraph : String -> String -> RawBlock b i
-addToParagraph paragraph rawLine =
+addToParagraph : List String -> String -> RawBlock b i
+addToParagraph paragraphLines rawLine =
     Paragraph
-        (paragraph ++ "\n" ++ formatParagraphLine rawLine)
+        (formatParagraphLine rawLine :: paragraphLines)
         []
 
 
@@ -848,8 +856,8 @@ formatParagraphLine rawParagraph =
 maybeContinueParagraph : String -> List (RawBlock b i) -> Maybe (List (RawBlock b i))
 maybeContinueParagraph rawLine ast =
     case ast of
-        (Paragraph paragraph _) :: astTail ->
-            addToParagraph paragraph rawLine
+        (Paragraph paragraphLines _) :: astTail ->
+            addToParagraph paragraphLines rawLine
                 :: astTail
                 |> Just
 
@@ -897,8 +905,11 @@ parseReferences refs =
 parseReferencesHelp : RawBlock b i -> ( References, List (RawBlock b i) ) -> ( References, List (RawBlock b i) )
 parseReferencesHelp block ( refs, parsedAST ) =
     case block of
-        Paragraph rawText _ ->
+        Paragraph lines _ ->
             let
+                rawText =
+                    joinParagraphLines lines
+
                 ( paragraphRefs, maybeUpdtText ) =
                     parseReference Dict.empty rawText
 
@@ -908,7 +919,7 @@ parseReferencesHelp block ( refs, parsedAST ) =
             case maybeUpdtText of
                 Just updtText ->
                     ( updtRefs
-                    , Paragraph updtText []
+                    , Paragraph (String.lines updtText |> List.reverse) []
                         :: parsedAST
                     )
 

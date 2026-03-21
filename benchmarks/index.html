@@ -22,13 +22,14 @@
 </head>
 <body>
   <h1>Markdown Parser Benchmark</h1>
-  <button id="run" onclick="runAll()">Run All (3 iterations each)</button>
+  <button id="run" onclick="runAll()">Run All (5 warmup + 20 measured)</button>
   <pre id="out">Loading...</pre>
   <script src="/benchmarks/build/benchmark.js"></script>
   <script>
     const out = document.getElementById("out");
     const btn = document.getElementById("run");
-    const ITERS = 3;
+    const WARMUP = 5;
+    const ITERS = 20;
 
     function log(s) { out.textContent += s + "\n"; }
     function pad(s, n) { return s + " ".repeat(Math.max(0, n - s.length)); }
@@ -87,10 +88,14 @@
       if (docs.length === 0) return;
       btn.disabled = true;
       out.textContent = "";
-      log(pad("document", 24) + pad("lines", 10) + pad("median", 14) + "all runs");
-      log("-".repeat(70));
+      log(pad("document", 24) + pad("lines", 10) + pad("median", 12) + pad("min", 10) + "all runs (after warmup)");
+      log("-".repeat(90));
 
       for (const doc of docs) {
+        // Warmup
+        for (let i = 0; i < WARMUP; i++) await bench(doc.text);
+
+        // Measured runs
         const lineCount = doc.text.split("\n").length;
         const times = [];
         for (let i = 0; i < ITERS; i++) {
@@ -98,13 +103,14 @@
         }
         times.sort((a, b) => a - b);
         const median = times[Math.floor(times.length / 2)];
-        const all = times.map(t => t.toFixed(1)).join(", ");
+        const min = times[0];
 
         log(
           pad(doc.name, 24) +
           pad(String(lineCount), 10) +
-          pad(median.toFixed(1) + " ms", 14) +
-          all + " ms"
+          pad(median.toFixed(1) + " ms", 12) +
+          pad(min.toFixed(1) + " ms", 10) +
+          times.map(t => t.toFixed(1)).join(", ") + " ms"
         );
       }
 

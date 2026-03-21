@@ -195,8 +195,11 @@ fromRawBlock options refs sourceLines textAsParagraph row colOffset rawBlock =
             , row + lineCount
             )
 
-        RawBlock.Paragraph rawText _ ->
+        RawBlock.Paragraph lines _ ->
             let
+                rawText =
+                    RawBlock.joinParagraphLines lines
+
                 inlines =
                     parseInlinesAt (1 + colOffset) rawText
             in
@@ -282,11 +285,11 @@ fromRawBlockContent rawBlock =
         RawBlock.Heading rawText level inlines ->
             Heading rawText level inlines
 
-        RawBlock.CodeBlock codeBlock code ->
-            CodeBlock (fromRawCodeBlock codeBlock) code
+        RawBlock.CodeBlock codeBlock codeLines ->
+            CodeBlock (fromRawCodeBlock codeBlock) (RawBlock.joinCodeLines codeLines)
 
-        RawBlock.Paragraph rawText inlines ->
-            Paragraph rawText inlines
+        RawBlock.Paragraph lines inlines ->
+            Paragraph (RawBlock.joinParagraphLines lines) inlines
 
         RawBlock.PlainInlines inlines ->
             PlainInlines inlines
@@ -367,40 +370,25 @@ rawBlockLineCount rawBlock =
                 -- single-line setext headings.
                 1
 
-        RawBlock.CodeBlock codeBlock code ->
+        RawBlock.CodeBlock codeBlock codeLines ->
             let
-                codeLines : Int
-                codeLines =
-                    if String.isEmpty code then
-                        0
-
-                    else
-                        code
-                            |> String.lines
-                            |> List.length
-                            |> (\n ->
-                                    if String.endsWith "\n" code then
-                                        n - 1
-
-                                    else
-                                        n
-                               )
+                numCodeLines : Int
+                numCodeLines =
+                    List.length codeLines
             in
             case codeBlock of
                 RawBlock.Fenced isOpen _ ->
                     if isOpen then
-                        -- Unclosed fence: opening fence line + code lines (no closing fence)
-                        codeLines + 1
+                        numCodeLines + 1
 
                     else
-                        -- Closed fence: opening + closing fence lines + code lines
-                        codeLines + 2
+                        numCodeLines + 2
 
                 RawBlock.Indented ->
-                    max 1 codeLines
+                    max 1 numCodeLines
 
-        RawBlock.Paragraph rawText _ ->
-            rawText |> String.lines |> List.length
+        RawBlock.Paragraph lines _ ->
+            List.length lines
 
         RawBlock.BlockQuote blocks ->
             blocks |> List.map rawBlockLineCount |> List.sum
