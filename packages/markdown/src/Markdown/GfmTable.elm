@@ -152,31 +152,39 @@ stripSuffix suffix str =
 
 splitOnUnescapedPipes : String -> List String
 splitOnUnescapedPipes s =
-    s
-        |> String.toList
-        |> splitOnUnescapedPipesHelp [] []
+    let
+        pipeIndexes =
+            String.indexes "|" s
+
+        unescapedPipes =
+            pipeIndexes
+                |> List.filter
+                    (\idx ->
+                        idx == 0 || String.slice (idx - 1) idx s /= "\\"
+                    )
+    in
+    splitAtIndexes s 0 unescapedPipes []
         |> List.reverse
+        |> List.map unescapePipes
 
 
-splitOnUnescapedPipesHelp : List String -> List Char -> List Char -> List String
-splitOnUnescapedPipesHelp cells currentCell chars =
-    case chars of
+splitAtIndexes : String -> Int -> List Int -> List String -> List String
+splitAtIndexes s start indexes acc =
+    case indexes of
         [] ->
-            (currentCell |> List.reverse |> String.fromList) :: cells
+            String.dropLeft start s :: acc
 
-        '\\' :: '|' :: rest ->
-            splitOnUnescapedPipesHelp cells ('|' :: currentCell) rest
+        idx :: rest ->
+            splitAtIndexes s (idx + 1) rest (String.slice start idx s :: acc)
 
-        '|' :: rest ->
-            let
-                finishedCell : String
-                finishedCell =
-                    currentCell |> List.reverse |> String.fromList
-            in
-            splitOnUnescapedPipesHelp (finishedCell :: cells) [] rest
 
-        c :: rest ->
-            splitOnUnescapedPipesHelp cells (c :: currentCell) rest
+unescapePipes : String -> String
+unescapePipes s =
+    if String.contains "\\|" s then
+        String.replace "\\|" "|" s
+
+    else
+        s
 
 
 normalizeRowLength : Int -> List String -> List String
