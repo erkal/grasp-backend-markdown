@@ -5,7 +5,6 @@ import Expect
 import Markdown
 import Markdown.Block exposing (Block(..), BlockContent(..), ListType(..))
 import Markdown.Inline exposing (Inline(..), InlineContent(..))
-import SourceLocation exposing (Region)
 import Test exposing (..)
 
 
@@ -19,23 +18,23 @@ suite =
                         |> parseFirstParagraphInlines
                         |> List.map inlineRegion
                         |> Expect.equal
-                            [ { start = { row = 1, col = 1 }, end = { row = 1, col = 6 } } ]
+                            [ ( ( 1, 1 ), ( 1, 6 ) ) ]
             , test "bold text has correct region" <|
                 \() ->
                     "**bold**"
                         |> parseFirstParagraphInlines
                         |> List.map inlineRegion
                         |> Expect.equal
-                            [ { start = { row = 1, col = 1 }, end = { row = 1, col = 9 } } ]
+                            [ ( ( 1, 1 ), ( 1, 9 ) ) ]
             , test "text before and after bold" <|
                 \() ->
                     "Hello **bold** end"
                         |> parseFirstParagraphInlines
                         |> List.map inlineRegion
                         |> Expect.equal
-                            [ { start = { row = 1, col = 1 }, end = { row = 1, col = 7 } }
-                            , { start = { row = 1, col = 7 }, end = { row = 1, col = 15 } }
-                            , { start = { row = 1, col = 15 }, end = { row = 1, col = 19 } }
+                            [ ( ( 1, 1 ), ( 1, 7 ) )
+                            , ( ( 1, 7 ), ( 1, 15 ) )
+                            , ( ( 1, 15 ), ( 1, 19 ) )
                             ]
             , test "wikilink has correct region" <|
                 \() ->
@@ -43,8 +42,8 @@ suite =
                         |> parseFirstParagraphInlines
                         |> List.map inlineRegion
                         |> Expect.equal
-                            [ { start = { row = 1, col = 1 }, end = { row = 1, col = 5 } }
-                            , { start = { row = 1, col = 5 }, end = { row = 1, col = 15 } }
+                            [ ( ( 1, 1 ), ( 1, 5 ) )
+                            , ( ( 1, 5 ), ( 1, 15 ) )
                             ]
             , test "inline code has correct region" <|
                 \() ->
@@ -52,9 +51,9 @@ suite =
                         |> parseFirstParagraphInlines
                         |> List.map inlineRegion
                         |> Expect.equal
-                            [ { start = { row = 1, col = 1 }, end = { row = 1, col = 5 } }
-                            , { start = { row = 1, col = 5 }, end = { row = 1, col = 11 } }
-                            , { start = { row = 1, col = 11 }, end = { row = 1, col = 16 } }
+                            [ ( ( 1, 1 ), ( 1, 5 ) )
+                            , ( ( 1, 5 ), ( 1, 11 ) )
+                            , ( ( 1, 11 ), ( 1, 16 ) )
                             ]
             , test "heading inlines have correct region" <|
                 \() ->
@@ -62,16 +61,15 @@ suite =
                         |> parseFirstHeadingInlines
                         |> List.map inlineRegion
                         |> Expect.equal
-                            [ { start = { row = 1, col = 3 }, end = { row = 1, col = 9 } }
-                            , { start = { row = 1, col = 9 }, end = { row = 1, col = 18 } }
+                            [ ( ( 1, 3 ), ( 1, 9 ) )
+                            , ( ( 1, 9 ), ( 1, 18 ) )
                             ]
             , test "inline in blockquote has correct column" <|
                 \() ->
                     "> Hello"
                         |> parseBlockQuoteInlines
                         |> List.map inlineRegion
-                        |> List.map .start
-                        |> List.map .col
+                        |> List.map (\( ( _, col ), _ ) -> col)
                         |> List.all (\col -> col > 1)
                         |> Expect.equal True
             , test "inline in list item has correct column" <|
@@ -79,8 +77,7 @@ suite =
                     "- Hello"
                         |> parseListItemInlines
                         |> List.map inlineRegion
-                        |> List.map .start
-                        |> List.map .col
+                        |> List.map (\( ( _, col ), _ ) -> col)
                         |> List.all (\col -> col > 1)
                         |> Expect.equal True
             , test "paragraph on second line has correct row" <|
@@ -88,8 +85,7 @@ suite =
                     "# Title\n\nHello"
                         |> parseFirstParagraphInlines
                         |> List.map inlineRegion
-                        |> List.map .start
-                        |> List.map .row
+                        |> List.map (\( ( row, _ ), _ ) -> row)
                         |> Expect.equal [ 3 ]
             , test "multi-line paragraph inlines span rows correctly" <|
                 \() ->
@@ -97,9 +93,9 @@ suite =
                         |> parseFirstParagraphInlines
                         |> List.map inlineRegion
                         |> Expect.equal
-                            [ { start = { row = 1, col = 1 }, end = { row = 2, col = 8 } }
-                            , { start = { row = 2, col = 8 }, end = { row = 2, col = 16 } }
-                            , { start = { row = 2, col = 16 }, end = { row = 2, col = 21 } }
+                            [ ( ( 1, 1 ), ( 2, 8 ) )
+                            , ( ( 2, 8 ), ( 2, 16 ) )
+                            , ( ( 2, 16 ), ( 2, 21 ) )
                             ]
             ]
         , describe "Wikilink collection"
@@ -213,6 +209,5 @@ parseListItemInlines str =
         |> Maybe.withDefault []
 
 
-inlineRegion : Inline () -> Region
 inlineRegion (Inline { region }) =
     region

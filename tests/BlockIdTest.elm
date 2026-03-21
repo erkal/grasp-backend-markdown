@@ -33,7 +33,7 @@ suite =
                 "Some text ^my-id"
                     |> parseBlockIds
                     |> Dict.get "my-id"
-                    |> Maybe.map (\r -> r.start.row >= 1)
+                    |> Maybe.map (\( ( startRow, _ ), _ ) -> startRow >= 1)
                     |> Expect.equal (Just True)
         ]
 
@@ -42,6 +42,5 @@ suite =
 -- HELPERS
 
 
-parseBlockIds : String -> Dict.Dict String { start : { row : Int, col : Int }, end : { row : Int, col : Int } }
 parseBlockIds str =
     (Markdown.parse Nothing str).blockIds

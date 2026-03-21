@@ -3,7 +3,6 @@ module RegionTest exposing (suite)
 import Expect
 import Markdown
 import Markdown.Block exposing (Block(..), BlockContent(..))
-import SourceLocation exposing (Region)
 import Test exposing (..)
 
 
@@ -16,8 +15,7 @@ suite =
                     |> parseBlocks
                     |> List.head
                     |> Maybe.map blockRegion
-                    |> Maybe.map .start
-                    |> Maybe.map .row
+                    |> Maybe.map (\( ( startRow, _ ), _ ) -> startRow)
                     |> Expect.equal (Just 1)
         , test "second block starts after first" <|
             \() ->
@@ -27,7 +25,11 @@ suite =
                         (\(Block { content, region }) ->
                             case content of
                                 Paragraph _ _ ->
-                                    Just region.start.row
+                                    let
+                                        ( ( startRow, _ ), _ ) =
+                                            region
+                                    in
+                                    Just startRow
 
                                 _ ->
                                     Nothing
@@ -39,7 +41,7 @@ suite =
                     |> parseBlocks
                     |> List.head
                     |> Maybe.map blockRegion
-                    |> Maybe.map (\r -> r.start.row >= 1 && r.start.col >= 1)
+                    |> Maybe.map (\( ( startRow, startCol ), _ ) -> startRow >= 1 && startCol >= 1)
                     |> Expect.equal (Just True)
         , test "multi-line block has end row > start row" <|
             \() ->
@@ -47,7 +49,7 @@ suite =
                     |> parseBlocks
                     |> List.head
                     |> Maybe.map blockRegion
-                    |> Maybe.map (\r -> r.end.row > r.start.row)
+                    |> Maybe.map (\( ( startRow, _ ), ( endRow, _ ) ) -> endRow > startRow)
                     |> Expect.equal (Just True)
         ]
 
@@ -61,6 +63,5 @@ parseBlocks str =
     (Markdown.parse Nothing str).blocks
 
 
-blockRegion : Block () () -> Region
 blockRegion (Block { region }) =
     region
