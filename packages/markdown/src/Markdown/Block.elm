@@ -35,7 +35,6 @@ module Markdown.Block
 
 import Array exposing (Array)
 import Dict exposing (Dict)
-import List.Extra
 import Markdown.Config exposing (Options, defaultOptions)
 import Markdown.Helpers exposing (References)
 import Markdown.Inline exposing (Inline(..), InlineContent(..))
@@ -522,9 +521,31 @@ extractBlockId rawText =
 
 lastWord : String -> Maybe String
 lastWord str =
-    str
-        |> String.words
-        |> List.Extra.last
+    let
+        len =
+            String.length str
+    in
+    if len == 0 then
+        Nothing
+
+    else
+        let
+            spaceIdx =
+                lastIndexOf ' ' (len - 1) str
+        in
+        Just (String.dropLeft (spaceIdx + 1) str)
+
+
+lastIndexOf : Char -> Int -> String -> Int
+lastIndexOf char idx str =
+    if idx < 0 then
+        -1
+
+    else if String.slice idx (idx + 1) str == String.fromChar char then
+        idx
+
+    else
+        lastIndexOf char (idx - 1) str
 
 
 isValidBlockId : String -> Bool
