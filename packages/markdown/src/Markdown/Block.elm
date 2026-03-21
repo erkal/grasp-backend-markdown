@@ -33,6 +33,7 @@ module Markdown.Block
 
 -}
 
+import Array exposing (Array)
 import Dict exposing (Dict)
 import List.Extra
 import Markdown.Config exposing (Options, defaultOptions)
@@ -126,8 +127,12 @@ parse maybeOptions str =
         ( refs, rawBlocks ) =
             RawBlock.parseBlockStructure str
 
+        sourceLines : Array String
+        sourceLines =
+            str |> String.split "\n" |> Array.fromList
+
         ( blocks, _ ) =
-            assignRegions options refs str True 1 0 rawBlocks
+            assignRegions options refs sourceLines True 1 0 rawBlocks
 
         blockIds : Dict String Region
         blockIds =
@@ -145,14 +150,14 @@ parse maybeOptions str =
 {-| Walk raw blocks and assign regions based on line counting.
 Returns the wrapped blocks and the next available row.
 -}
-assignRegions : Options -> References -> String -> Bool -> Int -> Int -> List (RawBlock.RawBlock b i) -> ( List (Block b i), Int )
-assignRegions options refs source textAsParagraph startRow colOffset rawBlocks =
+assignRegions : Options -> References -> Array String -> Bool -> Int -> Int -> List (RawBlock.RawBlock b i) -> ( List (Block b i), Int )
+assignRegions options refs sourceLines textAsParagraph startRow colOffset rawBlocks =
     rawBlocks
         |> List.foldl
             (\rawBlock ( acc, row ) ->
                 let
                     ( block, nextRow ) =
-                        fromRawBlock options refs source textAsParagraph row colOffset rawBlock
+                        fromRawBlock options refs sourceLines textAsParagraph row colOffset rawBlock
                 in
                 ( block :: acc, nextRow )
             )
@@ -160,8 +165,8 @@ assignRegions options refs source textAsParagraph startRow colOffset rawBlocks =
         |> Tuple.mapFirst List.reverse
 
 
-fromRawBlock : Options -> References -> String -> Bool -> Int -> Int -> RawBlock.RawBlock b i -> ( Block b i, Int )
-fromRawBlock options refs source textAsParagraph row colOffset rawBlock =
+fromRawBlock : Options -> References -> Array String -> Bool -> Int -> Int -> RawBlock.RawBlock b i -> ( Block b i, Int )
+fromRawBlock options refs sourceLines textAsParagraph row colOffset rawBlock =
     let
         lineCount : Int
         lineCount =
@@ -183,7 +188,7 @@ fromRawBlock options refs source textAsParagraph row colOffset rawBlock =
         RawBlock.Heading rawText lvl _ ->
             let
                 headingContentCol =
-                    1 + colOffset + headingPrefixLength source row
+                    1 + colOffset + headingPrefixLength sourceLines row
             in
             ( Block { content = Heading rawText lvl (parseInlinesAt headingContentCol rawText), region = region }
             , row + lineCount
@@ -213,10 +218,10 @@ fromRawBlock options refs source textAsParagraph row colOffset rawBlock =
         RawBlock.BlockQuote childBlocks ->
             let
                 bqColOffset =
-                    colOffset + blockQuotePrefixWidth source row
+                    colOffset + blockQuotePrefixWidth sourceLines row
 
                 ( wrappedChildren, _ ) =
-                    assignRegions options refs source True row bqColOffset childBlocks
+                    assignRegions options refs sourceLines True row bqColOffset childBlocks
             in
             ( Block { content = BlockQuote wrappedChildren, region = region }
             , row + lineCount
@@ -233,7 +238,7 @@ fromRawBlock options refs source textAsParagraph row colOffset rawBlock =
                             (\itemBlocks ( itemsAcc, itemRow ) ->
                                 let
                                     ( wrappedItemBlocks, nextItemRow ) =
-                                        assignRegions options refs source listBlock.isLoose itemRow listColOffset itemBlocks
+                                        assignRegions options refs sourceLines listBlock.isLoose itemRow listColOffset itemBlocks
                                 in
                                 ( wrappedItemBlocks :: itemsAcc, nextItemRow )
                             )
@@ -247,7 +252,7 @@ fromRawBlock options refs source textAsParagraph row colOffset rawBlock =
         RawBlock.Custom customBlock childBlocks ->
             let
                 ( wrappedChildren, _ ) =
-                    assignRegions options refs source True row colOffset childBlocks
+                    assignRegions options refs sourceLines True row colOffset childBlocks
             in
             ( Block { content = Custom customBlock wrappedChildren, region = region }
             , row + lineCount
@@ -297,21 +302,13 @@ fromRawBlockContent rawBlock =
             BlankLine "[BUG: Custom reached fromRawBlockContent]"
 
 
-{-| Compute the ATX heading prefix length (e.g., "# " = 2, "## " = 3).
-For setext headings (no `#` prefix), returns 0.
--}
-headingPrefixLength : String -> Int -> Int
-headingPrefixLength source row =
-    let
-        sourceLine =
-            getSourceLine source row
-    in
-    case Regex.findAtMost 1 headingPrefixRegex sourceLine of
+headingPrefixLength : Array String -> Int -> Int
+headingPrefixLength sourceLines row =
+    case Regex.findAtMost 1 headingPrefixRegex (getSourceLine sourceLines row) of
         match :: _ ->
             String.length match.match
 
         [] ->
-            -- Setext heading or fallback: no prefix
             0
 
 
@@ -321,15 +318,9 @@ headingPrefixRegex =
         |> Maybe.withDefault Regex.never
 
 
-{-| Compute the blockquote prefix width for a given source line.
--}
-blockQuotePrefixWidth : String -> Int -> Int
-blockQuotePrefixWidth source row =
-    let
-        sourceLine =
-            getSourceLine source row
-    in
-    case Regex.findAtMost 1 blockQuotePrefixRegex sourceLine of
+blockQuotePrefixWidth : Array String -> Int -> Int
+blockQuotePrefixWidth sourceLines row =
+    case Regex.findAtMost 1 blockQuotePrefixRegex (getSourceLine sourceLines row) of
         match :: _ ->
             String.length match.match
 
@@ -343,14 +334,9 @@ blockQuotePrefixRegex =
         |> Maybe.withDefault Regex.never
 
 
-{-| Get a 1-based source line from the original source string.
--}
-getSourceLine : String -> Int -> String
-getSourceLine source row =
-    source
-        |> String.split "\n"
-        |> List.drop (row - 1)
-        |> List.head
+getSourceLine : Array String -> Int -> String
+getSourceLine sourceLines row =
+    Array.get (row - 1) sourceLines
         |> Maybe.withDefault ""
 
 
