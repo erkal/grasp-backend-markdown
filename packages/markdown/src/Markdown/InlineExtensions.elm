@@ -202,4 +202,4 @@ hasExtendedSyntax str =
         || String.contains "==" str
         || String.contains "@" str
         || String.contains "$" str
-        || Regex.contains emojiRegex str
+        || String.contains ":" str
