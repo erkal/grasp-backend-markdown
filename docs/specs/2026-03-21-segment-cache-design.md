@@ -1,0 +1,1 @@
+/Users/erkal/repos/github/erkal/grasp/docs/specs/2026-03-21-segment-cache-design.md

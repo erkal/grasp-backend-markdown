@@ -47,6 +47,12 @@ type Block b i = Block { content : BlockContent b i, region : Region }
 type Inline i = Inline { content : InlineContent i, region : Region }
 ```
 
+## Design Specs
+
+- [SegmentCache](docs/specs/2026-03-21-segment-cache-design.md) — Content-addressed
+  incremental block-level parsing. Symlinked from the grasp repo (canonical location:
+  `../grasp/docs/specs/`).
+
 ## Conventions
 
 Same as the main grasp repo. See the grasp CLAUDE.md for Elm style, git workflow, etc.

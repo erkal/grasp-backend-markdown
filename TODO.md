@@ -21,6 +21,12 @@
 - [ ] Edge case tests (deeply nested structures, malformed input)
 - [ ] Roundtrip property tests
 
+## Performance
+
+- [ ] Implement SegmentCache for incremental block-level parsing (see [design spec](docs/specs/2026-03-21-segment-cache-design.md))
+- [ ] Factor `Markdown.Block.parse` to work per-block with block-relative regions
+- [ ] Write `splitMarkdownAtBlankLines` (respecting fences, block quotes, lists)
+
 ## Integration
 
 - [ ] Decide how grasp consumes this repo (submodule, symlink, copy, or other)
