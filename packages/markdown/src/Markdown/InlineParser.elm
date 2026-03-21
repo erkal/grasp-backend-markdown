@@ -7,8 +7,15 @@ import Markdown.Helpers exposing (Attribute, References, cleanWhitespaces, forma
 import Markdown.Inline exposing (Inline(..), InlineContent(..))
 import Markdown.Wikilink as Wikilink exposing (WikilinkData)
 import Regex exposing (Regex)
-import SourceLocation exposing (Position, Region)
 import Url
+
+
+type alias Position =
+    ( Int, Int )
+
+
+type alias Region =
+    ( ( Int, Int ), ( Int, Int ) )
 
 
 {-| Build a function that maps character offsets to source positions.
@@ -16,9 +23,9 @@ For single-line text (the common case), this is pure arithmetic.
 For multi-line text, line-start offsets are computed once upfront.
 -}
 buildPositionLookup : Position -> String -> (Int -> Position)
-buildPositionLookup base text =
+buildPositionLookup (( baseRow, baseCol ) as base) text =
     if not (String.contains "\n" text) then
-        \offset -> { row = base.row, col = base.col + offset }
+        \offset -> ( baseRow, baseCol + offset )
 
     else
         let
@@ -36,10 +43,10 @@ buildPositionLookup base text =
                     findLineContaining (Array.length lineStartOffsets - 1) offset lineStartOffsets
             in
             if lineIndex == 0 then
-                { row = base.row, col = base.col + offset }
+                ( baseRow, baseCol + offset )
 
             else
-                { row = base.row + lineIndex, col = 1 + offset - lineStart }
+                ( baseRow + lineIndex, 1 + offset - lineStart )
 
 
 findLineContaining : Int -> Int -> Array Int -> ( Int, Int )
@@ -131,7 +138,11 @@ parse options refs startPosition rawText =
 
         trimmedStartPos : Position
         trimmedStartPos =
-            { row = startPosition.row, col = startPosition.col + trimLeftCount }
+            let
+                ( row, col ) =
+                    startPosition
+            in
+            ( row, col + trimLeftCount )
 
         offsetToPos : Int -> Position
         offsetToPos =
@@ -2071,9 +2082,9 @@ matchToInline scopeOffsetToPos (Match match) =
     let
         region : Region
         region =
-            { start = scopeOffsetToPos match.start
-            , end = scopeOffsetToPos match.end
-            }
+            ( scopeOffsetToPos match.start
+            , scopeOffsetToPos match.end
+            )
 
         childScopeOffsetToPos : Int -> Position
         childScopeOffsetToPos childOffset =

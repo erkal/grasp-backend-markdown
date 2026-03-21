@@ -43,7 +43,10 @@ import Markdown.InlineParser as InlineParser
 import Markdown.RawBlock as RawBlock
 import Markdown.Wikilink exposing (WikilinkData)
 import Regex exposing (Regex)
-import SourceLocation exposing (ComparableRegion, Region, toComparableRegion)
+
+
+type alias Region =
+    ( ( Int, Int ), ( Int, Int ) )
 
 
 -- TYPES
@@ -107,7 +110,7 @@ type ListType
 type alias ParseResult b i =
     { blocks : List (Block b i)
     , blockIds : Dict String Region
-    , wikilinks : Dict ComparableRegion WikilinkData
+    , wikilinks : Dict Region WikilinkData
     }
 
 
@@ -176,13 +179,11 @@ fromRawBlock options refs sourceLines textAsParagraph row colOffset rawBlock =
         -- This ensures single-line blocks produce non-zero-width ranges.
         region : Region
         region =
-            { start = { row = row, col = 1 }
-            , end = { row = row + lineCount, col = 1 }
-            }
+            ( ( row, 1 ), ( row + lineCount, 1 ) )
 
         parseInlinesAt : Int -> String -> List (Inline i)
         parseInlinesAt startCol rawText =
-            InlineParser.parse options refs { row = row, col = startCol } rawText
+            InlineParser.parse options refs ( row, startCol ) rawText
     in
     case rawBlock of
         RawBlock.Heading rawText lvl _ ->
@@ -525,13 +526,13 @@ isBlockIdChar c =
 
 
 
-collectWikilinks : Block b i -> List ( ComparableRegion, WikilinkData )
+collectWikilinks : Block b i -> List ( Region, WikilinkData )
 collectWikilinks block =
     queryInlines
         (\(Inline { content, region }) ->
             case content of
                 Wikilink data ->
-                    [ ( toComparableRegion region, data ) ]
+                    [ ( region, data ) ]
 
                 _ ->
                     []

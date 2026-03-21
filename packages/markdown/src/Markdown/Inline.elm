@@ -21,7 +21,10 @@ module Markdown.Inline
 
 import Markdown.Helpers exposing (Attribute)
 import Markdown.Wikilink as Wikilink exposing (WikilinkData)
-import SourceLocation exposing (Region)
+
+
+type alias Region =
+    ( ( Int, Int ), ( Int, Int ) )
 
 
 {-| An inline element with its source region.
