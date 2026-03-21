@@ -71,34 +71,50 @@ whitespacesRegex =
 
 
 indentLength : String -> Int
-indentLength =
-    Regex.replace tabRegex (\_ -> "    ")
-        >> Regex.findAtMost 1 initSpacesRegex
-        >> List.head
-        >> Maybe.map (.match >> String.length)
-        >> Maybe.withDefault 0
+indentLength str =
+    indentLengthAt 0 0 str
 
 
-tabRegex : Regex
-tabRegex =
-    Regex.fromString "\\t"
-        |> Maybe.withDefault Regex.never
+indentLengthAt : Int -> Int -> String -> Int
+indentLengthAt pos col str =
+    case String.slice pos (pos + 1) str of
+        " " ->
+            indentLengthAt (pos + 1) (col + 1) str
 
+        "\t" ->
+            indentLengthAt (pos + 1) (col + 4) str
 
-initSpacesRegex : Regex
-initSpacesRegex =
-    Regex.fromString "^ +"
-        |> Maybe.withDefault Regex.never
+        _ ->
+            col
 
 
 indentLine : Int -> String -> String
-indentLine indentLength_ =
-    Regex.replace tabRegex (\_ -> "    ")
-        >> Regex.replaceAtMost 1
-            (Regex.fromString ("^ {0," ++ String.fromInt indentLength_ ++ "}")
-                |> Maybe.withDefault Regex.never
-            )
-            (\_ -> "")
+indentLine n str =
+    let
+        expanded : String
+        expanded =
+            if String.contains "\t" str then
+                String.replace "\t" "    " str
+
+            else
+                str
+    in
+    stripLeadingSpaces n 0 expanded
+
+
+stripLeadingSpaces : Int -> Int -> String -> String
+stripLeadingSpaces maxStrip pos str =
+    if pos >= maxStrip then
+        String.dropLeft pos str
+
+    else if String.slice pos (pos + 1) str == " " then
+        stripLeadingSpaces maxStrip (pos + 1) str
+
+    else if pos == 0 then
+        str
+
+    else
+        String.dropLeft pos str
 
 
 escapableRegex : Regex

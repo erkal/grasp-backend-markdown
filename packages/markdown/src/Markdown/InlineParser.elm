@@ -364,20 +364,18 @@ tokenize : Parser -> Parser
 tokenize model =
     { model
         | tokens =
-            findCodeTokens model.rawText
-                |> (++) (findAsteriskEmphasisTokens model.rawText)
-                |> (++) (findUnderlineEmphasisTokens model.rawText)
-                |> (++) (findLinkImageOpenTokens model.rawText)
-                |> (++) (findLinkImageCloseTokens model.rawText)
-                |> (++)
-                    (findHardBreakTokens
-                        model.options.softAsHardLineBreak
-                        model.rawText
-                    )
-                |> (++) (findAngleBracketLTokens model.rawText)
-                |> (++) (findAngleBracketRTokens model.rawText)
-                |> (++) (findWikilinkOpenTokens model.rawText)
-                |> (++) (findWikilinkCloseTokens model.rawText)
+            List.concat
+                [ findCodeTokens model.rawText
+                , findAsteriskEmphasisTokens model.rawText
+                , findUnderlineEmphasisTokens model.rawText
+                , findLinkImageOpenTokens model.rawText
+                , findLinkImageCloseTokens model.rawText
+                , findHardBreakTokens model.options.softAsHardLineBreak model.rawText
+                , findAngleBracketLTokens model.rawText
+                , findAngleBracketRTokens model.rawText
+                , findWikilinkOpenTokens model.rawText
+                , findWikilinkCloseTokens model.rawText
+                ]
                 |> List.sortBy .index
     }
 

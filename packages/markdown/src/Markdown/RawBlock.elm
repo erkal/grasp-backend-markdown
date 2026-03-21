@@ -176,15 +176,30 @@ incorporateLine rawLine ast =
 
 parseRawLine : String -> List (RawBlock b i) -> List (RawBlock b i)
 parseRawLine rawLine ast =
-    checkBlankLine ( rawLine, ast )
-        |> ifError checkIndentedCode
-        |> ifError checkOpenCodeFenceLine
-        |> ifError checkSetextHeadingLine
-        |> ifError checkATXHeadingLine
-        |> ifError checkBlockQuote
-        |> ifError checkThematicBreakLine
-        |> ifError checkListLine
-        |> Result.withDefault (parseTextLine rawLine ast)
+    if startsWithAlpha rawLine then
+        -- No block syntax starts with a letter. Skip all regex checks.
+        parseTextLine rawLine ast
+
+    else
+        checkBlankLine ( rawLine, ast )
+            |> ifError checkIndentedCode
+            |> ifError checkOpenCodeFenceLine
+            |> ifError checkSetextHeadingLine
+            |> ifError checkATXHeadingLine
+            |> ifError checkBlockQuote
+            |> ifError checkThematicBreakLine
+            |> ifError checkListLine
+            |> Result.withDefault (parseTextLine rawLine ast)
+
+
+startsWithAlpha : String -> Bool
+startsWithAlpha str =
+    case String.uncons str of
+        Just ( c, _ ) ->
+            Char.isAlpha c
+
+        Nothing ->
+            False
 
 
 
