@@ -535,38 +535,38 @@ maybeCharFringeRank maybeChar =
 
 charFringeRank : Char -> Int
 charFringeRank char =
-    let
-        string =
-            String.fromChar char
-    in
-    if containSpace string then
+    if isWhitespace char then
         0
-    else if containPunctuation string then
+
+    else if isPunctuation char then
         1
+
     else
         2
 
 
-containSpace : String -> Bool
-containSpace =
-    Regex.contains spaceRegex
+isWhitespace : Char -> Bool
+isWhitespace c =
+    c == ' ' || c == '\t' || c == '\n' || c == '\u{000B}' || c == '\u{000C}' || c == '\r'
 
 
-spaceRegex : Regex
-spaceRegex =
-    Regex.fromString "\\s"
-        |> Maybe.withDefault Regex.never
-
-
-containPunctuation : String -> Bool
-containPunctuation =
-    Regex.contains punctuationRegex
-
-
-punctuationRegex : Regex
-punctuationRegex =
-    Regex.fromString "[!-#%-\\*,-/:;\\?@\\[-\\]_\\{\\}]"
-        |> Maybe.withDefault Regex.never
+isPunctuation : Char -> Bool
+isPunctuation c =
+    let
+        code =
+            Char.toCode c
+    in
+    -- ASCII punctuation ranges: !-# (33-35), %-* (37-42), ,-/ (44-47),
+    -- : and ; (58-59), ? and @ (63-64), [-] (91-93), _ (95), { (123), } (125)
+    (code >= 33 && code <= 35)
+        || (code >= 37 && code <= 42)
+        || (code >= 44 && code <= 47)
+        || (code >= 58 && code <= 59)
+        || (code >= 63 && code <= 64)
+        || (code >= 91 && code <= 93)
+        || code == 95
+        || code == 123
+        || code == 125
 
 
 
