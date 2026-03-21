@@ -1,53 +1,63 @@
 module Markdown.InlineParser exposing (parse, query, walk)
 
+import Array exposing (Array)
 import Dict exposing (Dict)
 import Markdown.Config as Config exposing (HtmlOption(..), Options)
 import Markdown.Helpers exposing (Attribute, References, cleanWhitespaces, formatStr, ifError, insideSquareBracketRegex, isEven, prepareRefLabel, returnFirstJust, titleRegex, whiteSpaceChars)
 import Markdown.Inline exposing (Inline(..), InlineContent(..))
 import Markdown.Wikilink as Wikilink exposing (WikilinkData)
 import Regex exposing (Regex)
-import SourceLocation exposing (Position, Region, placeholderRegion)
+import SourceLocation exposing (Position, Region)
 import Url
 
 
-wrapInline : InlineContent i -> Inline i
-wrapInline content =
-    Inline { content = content, region = placeholderRegion }
-
-
-
-{-| Convert a character offset within `text` to an absolute Position.
-`base` is the source position of the first character in `text`.
-For continuation lines (after newlines in `text`), column resets to 1.
+{-| Build a function that maps character offsets to source positions.
+For single-line text (the common case), this is pure arithmetic.
+For multi-line text, line-start offsets are computed once upfront.
 -}
-offsetToPosition : Position -> String -> Int -> Position
-offsetToPosition base text offset =
-    let
-        before =
-            String.left offset text
-
-        newlineCount =
-            before
-                |> String.toList
-                |> List.filter (\c -> c == '\n')
-                |> List.length
-    in
-    if newlineCount == 0 then
-        { row = base.row, col = base.col + offset }
+buildPositionLookup : Position -> String -> (Int -> Position)
+buildPositionLookup base text =
+    if not (String.contains "\n" text) then
+        \offset -> { row = base.row, col = base.col + offset }
 
     else
         let
-            lastNewlineIndex =
-                before
+            lineStartOffsets : Array Int
+            lineStartOffsets =
+                text
                     |> String.indexes "\n"
-                    |> List.reverse
-                    |> List.head
-                    |> Maybe.withDefault 0
-
-            colAfterNewline =
-                offset - lastNewlineIndex - 1
+                    |> List.map (\i -> i + 1)
+                    |> (::) 0
+                    |> Array.fromList
         in
-        { row = base.row + newlineCount, col = 1 + colAfterNewline }
+        \offset ->
+            let
+                ( lineIndex, lineStart ) =
+                    findLineContaining (Array.length lineStartOffsets - 1) offset lineStartOffsets
+            in
+            if lineIndex == 0 then
+                { row = base.row, col = base.col + offset }
+
+            else
+                { row = base.row + lineIndex, col = 1 + offset - lineStart }
+
+
+findLineContaining : Int -> Int -> Array Int -> ( Int, Int )
+findLineContaining idx offset lineStartOffsets =
+    if idx <= 0 then
+        ( 0, 0 )
+
+    else
+        case Array.get idx lineStartOffsets of
+            Just lineStart ->
+                if lineStart <= offset then
+                    ( idx, lineStart )
+
+                else
+                    findLineContaining (idx - 1) offset lineStartOffsets
+
+            Nothing ->
+                ( 0, 0 )
 
 
 
@@ -115,19 +125,17 @@ parse options refs startPosition rawText =
         trimmedText =
             String.trim rawText
 
+        trimLeftCount : Int
         trimLeftCount =
             String.length rawText - String.length (String.trimLeft rawText)
 
+        trimmedStartPos : Position
         trimmedStartPos =
-            if trimLeftCount == 0 then
-                startPosition
+            { row = startPosition.row, col = startPosition.col + trimLeftCount }
 
-            else
-                offsetToPosition startPosition rawText trimLeftCount
-
-        scopeOffsetToPos : Int -> Position
-        scopeOffsetToPos charOffset =
-            offsetToPosition trimmedStartPos trimmedText charOffset
+        offsetToPos : Int -> Position
+        offsetToPos =
+            buildPositionLookup trimmedStartPos trimmedText
     in
     trimmedText
         |> initParser options refs
@@ -136,7 +144,7 @@ parse options refs startPosition rawText =
         |> organizeParserMatches
         |> parseText
         |> .matches
-        |> matchesToInlines scopeOffsetToPos
+        |> matchesToInlines offsetToPos
 
 
 parseText : Parser -> Parser

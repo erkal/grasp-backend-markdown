@@ -91,6 +91,16 @@ suite =
                         |> List.map .start
                         |> List.map .row
                         |> Expect.equal [ 3 ]
+            , test "multi-line paragraph inlines span rows correctly" <|
+                \() ->
+                    "first line\nsecond **bold** here"
+                        |> parseFirstParagraphInlines
+                        |> List.map inlineRegion
+                        |> Expect.equal
+                            [ { start = { row = 1, col = 1 }, end = { row = 2, col = 8 } }
+                            , { start = { row = 2, col = 8 }, end = { row = 2, col = 16 } }
+                            , { start = { row = 2, col = 16 }, end = { row = 2, col = 21 } }
+                            ]
             ]
         , describe "Wikilink collection"
             [ test "wikilinks dict is populated" <|
