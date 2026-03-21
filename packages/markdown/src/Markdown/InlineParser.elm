@@ -342,19 +342,27 @@ tokenToMatch token type_ =
 
 tokenize : Parser -> Parser
 tokenize model =
+    let
+        rawText =
+            model.rawText
+
+        has : String -> Bool
+        has c =
+            String.contains c rawText
+    in
     { model
         | tokens =
             List.concat
-                [ findCodeTokens model.rawText
-                , findAsteriskEmphasisTokens model.rawText
-                , findUnderlineEmphasisTokens model.rawText
-                , findLinkImageOpenTokens model.rawText
-                , findLinkImageCloseTokens model.rawText
-                , findHardBreakTokens model.options.softAsHardLineBreak model.rawText
-                , findAngleBracketLTokens model.rawText
-                , findAngleBracketRTokens model.rawText
-                , findWikilinkOpenTokens model.rawText
-                , findWikilinkCloseTokens model.rawText
+                [ if has "`" then findCodeTokens rawText else []
+                , if has "*" then findAsteriskEmphasisTokens rawText else []
+                , if has "_" then findUnderlineEmphasisTokens rawText else []
+                , if has "[" then findLinkImageOpenTokens rawText else []
+                , if has "]" then findLinkImageCloseTokens rawText else []
+                , if has "\n" then findHardBreakTokens model.options.softAsHardLineBreak rawText else []
+                , if has "<" then findAngleBracketLTokens rawText else []
+                , if has ">" then findAngleBracketRTokens rawText else []
+                , if has "[[" then findWikilinkOpenTokens rawText else []
+                , if has "]]" then findWikilinkCloseTokens rawText else []
                 ]
                 |> List.sortBy .index
     }
