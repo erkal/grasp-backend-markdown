@@ -12,8 +12,11 @@ import Markdown
 import Markdown.Block as Block exposing (Block(..), BlockContent(..), ParseResult)
 import Markdown.Inline as Inline exposing (Inline(..), InlineContent(..))
 import Markdown.Wikilink exposing (WikilinkData)
-import SourceLocation exposing (ComparableRegion, Region)
 import WebSocketManager as WS
+
+
+type alias Region =
+    ( ( Int, Int ), ( Int, Int ) )
 
 
 port wsOut : WS.CommandPort msg
@@ -352,7 +355,7 @@ handleServerMessage message model =
 
 
 regionToOffsets : String -> Region -> Maybe ( Int, Int )
-regionToOffsets source region =
+regionToOffsets source (( ( startRow, startCol ), ( endRow, endCol ) ) as region) =
     let
         lines : List String
         lines =
@@ -366,11 +369,11 @@ regionToOffsets source region =
 
         fromOffset : Int
         fromOffset =
-            lineStartOffset region.start.row + (region.start.col - 1)
+            lineStartOffset startRow + (startCol - 1)
 
         toOffset : Int
         toOffset =
-            lineStartOffset region.end.row + (region.end.col - 1)
+            lineStartOffset endRow + (endCol - 1)
 
         docLength : Int
         docLength =
@@ -536,7 +539,7 @@ viewBlockIdsSummary blockIds =
             ]
 
 
-viewWikilinksSummary : Dict ComparableRegion WikilinkData -> Html Msg
+viewWikilinksSummary : Dict Region WikilinkData -> Html Msg
 viewWikilinksSummary wikilinks =
     if Dict.isEmpty wikilinks then
         text ""
@@ -549,12 +552,7 @@ viewWikilinksSummary wikilinks =
                 (wikilinks
                     |> Dict.toList
                     |> List.map
-                        (\( comparableRegion, data ) ->
-                            let
-                                region : Region
-                                region =
-                                    SourceLocation.fromComparableRegion comparableRegion
-                            in
+                        (\( region, data ) ->
                             div
                                 [ Attr.class "ast-wikilink"
                                 , Events.onMouseEnter (HoveredAstNode (Just region))
@@ -736,16 +734,16 @@ viewInlineChildren depth content =
 
 
 viewRegionBadge : Region -> Html Msg
-viewRegionBadge region =
+viewRegionBadge ( ( startRow, startCol ), ( endRow, endCol ) ) =
     span [ Attr.class "ast-region" ]
         [ text
-            (String.fromInt region.start.row
+            (String.fromInt startRow
                 ++ ":"
-                ++ String.fromInt region.start.col
+                ++ String.fromInt startCol
                 ++ " \u{2192} "
-                ++ String.fromInt region.end.row
+                ++ String.fromInt endRow
                 ++ ":"
-                ++ String.fromInt region.end.col
+                ++ String.fromInt endCol
             )
         ]
 
