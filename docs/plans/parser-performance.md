@@ -26,7 +26,7 @@
 **Files:**
 - Modify: `packages/markdown/src/Markdown/Helpers.elm:123-128`
 
-- [ ] **Step 1: Add String.contains guard before the 4 regex passes**
+- [x] **Step 1: Add String.contains guard before the 4 regex passes**
 
 ```elm
 formatStr : String -> String
@@ -41,15 +41,15 @@ formatStr str =
             |> Entity.replaceHexadecimals
 ```
 
-- [ ] **Step 2: Run tests**
+- [x] **Step 2: Run tests**
 
 Run: `pnpm test`
 
-- [ ] **Step 3: Run benchmark, record result**
+- [x] **Step 3: Run benchmark, record result**
 
 Run: `pnpm run bench`
 
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 4: Commit with benchmark result**
 
 ```
 perf: fast-path guard in formatStr — skip 4 regexes when no \ or &
@@ -64,7 +64,7 @@ perf: fast-path guard in formatStr — skip 4 regexes when no \ or &
 **Files:**
 - Modify: `packages/markdown/src/Markdown/InlineParser.elm:536-569`
 
-- [ ] **Step 1: Replace charFringeRank with direct Char tests**
+- [x] **Step 1: Replace charFringeRank with direct Char tests**
 
 The `spaceRegex` matches `\s` (whitespace). The `punctuationRegex` matches `[!-#%-*,-/:;?@[-]_{}-]` (ASCII punctuation). Replace with:
 
@@ -107,9 +107,9 @@ isPunctuation c =
 
 Remove `containSpace`, `spaceRegex`, `containPunctuation`, `punctuationRegex` if they become unused.
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -120,7 +120,7 @@ Remove `containSpace`, `spaceRegex`, `containPunctuation`, `punctuationRegex` if
 **Files:**
 - Modify: `packages/markdown/src/Markdown/RawBlock.elm:224-229`
 
-- [ ] **Step 1: Replace regex with String.trim check**
+- [x] **Step 1: Replace regex with String.trim check**
 
 ```elm
 checkBlankLine : ( String, List (RawBlock b i) ) -> Result ( String, List (RawBlock b i) ) (List (RawBlock b i))
@@ -144,9 +144,9 @@ This affects `addBlankLineToListBlock` too — it currently passes a `Regex.Matc
 
 Also update `calcListIndentLength` (line ~737) which calls `Regex.contains blankLineRegex rawLine` — replace with `String.isEmpty (String.trim rawLine)`.
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -157,7 +157,7 @@ The last check in `hasExtendedSyntax` is `Regex.contains emojiRegex str`. This r
 **Files:**
 - Modify: `packages/markdown/src/Markdown/InlineExtensions.elm:205`
 
-- [ ] **Step 1: Replace the regex check with String.contains**
+- [x] **Step 1: Replace the regex check with String.contains**
 
 ```elm
 hasExtendedSyntax str =
@@ -172,9 +172,9 @@ hasExtendedSyntax str =
 
 This accepts slight false positives (colons without emoji syntax), which is fine — the downstream `expandSegment` handles no-match gracefully.
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -187,7 +187,7 @@ This accepts slight false positives (colons without emoji syntax), which is fine
 **Files:**
 - Modify: `packages/markdown/src/Markdown/RawBlock.elm:904-927`
 
-- [ ] **Step 1: Guard on first line starting with `[`**
+- [x] **Step 1: Guard on first line starting with `[`**
 
 The reversed list stores the last source line at the head. Reference definitions start with `[` at the beginning of the paragraph (which is the LAST element in the reversed list). Check this before joining:
 
@@ -214,9 +214,9 @@ Paragraph lines _ ->
 
 Note: `List.Extra.last` is O(n) on the reversed list. For short paragraphs (1-5 lines) this is fine. For a faster check, you could store the first line separately, but that changes the type.
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -228,7 +228,7 @@ Note: `List.Extra.last` is O(n) on the reversed list. For short paragraphs (1-5 
 - Modify: `packages/markdown/src/Markdown/RawBlock.elm` — return the lines from `parseBlockStructure`
 - Modify: `packages/markdown/src/Markdown/Block.elm:123-135` — accept lines instead of recomputing
 
-- [ ] **Step 1: Change `parseBlockStructure` to also return the source lines**
+- [x] **Step 1: Change `parseBlockStructure` to also return the source lines**
 
 ```elm
 parseBlockStructure : String -> ( References, List (RawBlock b i), Array String )
@@ -248,7 +248,7 @@ parseBlockStructure str =
 
 Update the exposed API accordingly (add `Array` import, update the `exposing` list if needed).
 
-- [ ] **Step 2: Update `Block.parse` to use the shared array**
+- [x] **Step 2: Update `Block.parse` to use the shared array**
 
 ```elm
 parse maybeOptions str =
@@ -266,9 +266,9 @@ parse maybeOptions str =
 
 Remove the duplicate `str |> String.split "\n" |> Array.fromList`.
 
-- [ ] **Step 3: Run tests**
-- [ ] **Step 4: Run benchmark, record result**
-- [ ] **Step 5: Commit with benchmark result**
+- [x] **Step 3: Run tests**
+- [x] **Step 4: Run benchmark, record result**
+- [x] **Step 5: Commit with benchmark result**
 
 ---
 
@@ -279,7 +279,7 @@ Both functions walk the entire block tree independently with `List.concatMap`.
 **Files:**
 - Modify: `packages/markdown/src/Markdown/Block.elm:140-150, 439-528`
 
-- [ ] **Step 1: Create a combined collection function**
+- [x] **Step 1: Create a combined collection function**
 
 ```elm
 collectBlockIdsAndWikilinks :
@@ -300,7 +300,7 @@ collectBlockIdsAndWikilinks blocks =
 
 Inline the logic from `collectBlockIds` and `collectWikilinks` into `collectFromBlock`, walking children once.
 
-- [ ] **Step 2: Update `parse` to use the combined function**
+- [x] **Step 2: Update `parse` to use the combined function**
 
 ```elm
 ( blockIds, wikilinks ) =
@@ -311,9 +311,9 @@ Inline the logic from `collectBlockIds` and `collectWikilinks` into `collectFrom
     ( Dict.fromList idPairs, Dict.fromList wlPairs )
 ```
 
-- [ ] **Step 3: Run tests**
-- [ ] **Step 4: Run benchmark, record result**
-- [ ] **Step 5: Commit with benchmark result**
+- [x] **Step 3: Run tests**
+- [x] **Step 4: Run benchmark, record result**
+- [x] **Step 5: Commit with benchmark result**
 
 ---
 
@@ -324,7 +324,7 @@ Inline the logic from `collectBlockIds` and `collectWikilinks` into `collectFrom
 **Files:**
 - Modify: `packages/markdown/src/Markdown/Block.elm:495-499`
 
-- [ ] **Step 1: Scan backward to find last word**
+- [x] **Step 1: Scan backward to find last word**
 
 ```elm
 lastWord : String -> Maybe String
@@ -361,9 +361,9 @@ lastIndexOf char idx str =
 
 Note: `extractBlockId` already calls `String.trimRight` before `lastWord`. Avoid double-trimming.
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -382,13 +382,13 @@ Note: `extractBlockId` already calls `String.trimRight` before `lastWord`. Avoid
 **Files:**
 - Modify: `packages/markdown/src/Markdown/GfmTable.elm:153-179`
 
-- [ ] **Step 1: Rewrite using `String.indexes` and `String.slice`**
+- [x] **Step 1: Rewrite using `String.indexes` and `String.slice`**
 
 Find pipe positions with `String.indexes "|"`, filter out escaped ones (preceded by `\`), then `String.slice` between them. This avoids the `List Char` allocation entirely.
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -399,7 +399,7 @@ Find pipe positions with `String.indexes "|"`, filter out escaped ones (preceded
 **Files:**
 - Modify: `packages/markdown/src/Markdown/Block.elm:353-371`
 
-- [ ] **Step 1: Count newlines instead of splitting**
+- [x] **Step 1: Count newlines instead of splitting**
 
 ```elm
 RawBlock.Heading rawText _ _ ->
@@ -414,9 +414,9 @@ RawBlock.Heading rawText _ _ ->
         1
 ```
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -427,7 +427,7 @@ RawBlock.Heading rawText _ _ ->
 **Files:**
 - Modify: `packages/markdown/src/Markdown/RawBlock.elm:722-752`
 
-- [ ] **Step 1: Replace with String.trim check**
+- [x] **Step 1: Replace with String.trim check**
 
 ```elm
 || String.isEmpty (String.trim rawLine)
@@ -435,9 +435,9 @@ RawBlock.Heading rawText _ _ ->
 
 (This may already be fixed if Task 3 removed `blankLineRegex` entirely. If so, this task is a no-op.)
 
-- [ ] **Step 2: Run tests**
-- [ ] **Step 3: Run benchmark, record result**
-- [ ] **Step 4: Commit with benchmark result**
+- [x] **Step 2: Run tests**
+- [x] **Step 3: Run benchmark, record result**
+- [x] **Step 4: Commit with benchmark result**
 
 ---
 
@@ -446,8 +446,8 @@ RawBlock.Heading rawText _ _ ->
 Run the final benchmark and compare against the baseline:
 
 ```
-Baseline:        1x = 2.8 ms,  50x = 118 ms
-After all fixes: 1x = ??? ms,  50x = ??? ms
+Baseline:        1x = 3.2 ms,  5x = 11.5 ms,  50x = 125.5 ms
+After all fixes: 1x = 2.9 ms,  5x = 10.0 ms,  50x = 108.2 ms  (−14%)
 ```
 
-Record the final result in a commit updating this plan file with the measured numbers. Then proceed to SegmentCache implementation.
+All tasks complete. Task 9 skipped (sort required for correctness). Task 12 was a no-op (blankLineRegex already removed in Task 3).
