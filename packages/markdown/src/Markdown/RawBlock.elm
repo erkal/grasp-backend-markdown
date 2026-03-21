@@ -223,41 +223,41 @@ startsWithAlpha str =
 
 checkBlankLine : ( String, List (RawBlock b i) ) -> Result ( String, List (RawBlock b i) ) (List (RawBlock b i))
 checkBlankLine ( rawLine, ast ) =
-    Regex.findAtMost 1 blankLineRegex rawLine
-        |> List.head
-        |> Maybe.map (parseBlankLine ast)
-        |> Result.fromMaybe ( rawLine, ast )
+    if String.isEmpty (String.trim rawLine) then
+        Result.Ok (parseBlankLine ast rawLine)
+
+    else
+        Result.Err ( rawLine, ast )
 
 
-blankLineRegex : Regex
-blankLineRegex =
-    Regex.fromString "^\\s*$"
-        |> Maybe.withDefault Regex.never
+isBlankLine : String -> Bool
+isBlankLine str =
+    String.isEmpty (String.trim str)
 
 
-parseBlankLine : List (RawBlock b i) -> Regex.Match -> List (RawBlock b i)
-parseBlankLine ast match =
+parseBlankLine : List (RawBlock b i) -> String -> List (RawBlock b i)
+parseBlankLine ast blankStr =
     case ast of
         (CodeBlock (Fenced True fence) codeLines) :: astTail ->
             CodeBlock (Fenced True fence) ("" :: codeLines)
                 |> (\a -> (::) a astTail)
 
         (List model items) :: astTail ->
-            List model (addBlankLineToListBlock match items)
+            List model (addBlankLineToListBlock blankStr items)
                 :: astTail
 
         _ ->
-            BlankLine match.match :: ast
+            BlankLine blankStr :: ast
 
 
-addBlankLineToListBlock : Regex.Match -> List (List (RawBlock b i)) -> List (List (RawBlock b i))
-addBlankLineToListBlock match asts =
+addBlankLineToListBlock : String -> List (List (RawBlock b i)) -> List (List (RawBlock b i))
+addBlankLineToListBlock blankStr asts =
     case asts of
         [] ->
-            [ [ BlankLine match.match ] ]
+            [ [ BlankLine blankStr ] ]
 
         ast :: astsTail ->
-            parseBlankLine ast match
+            parseBlankLine ast blankStr
                 :: astsTail
 
 
@@ -734,7 +734,7 @@ calcListIndentLength ( listBlock, indentSpace, rawLine ) =
         indentLength =
             if
                 isIndentedCode
-                    || Regex.contains blankLineRegex rawLine
+                    || isBlankLine rawLine
             then
                 listBlock.indentLength - indentSpaceLength
             else
@@ -1045,7 +1045,7 @@ dropRefString rawText inlineMatch =
         strippedText =
             String.dropLeft inlineMatch.matchLength rawText
     in
-    if Regex.contains blankLineRegex strippedText then
+    if isBlankLine strippedText then
         Nothing
     else
         Just strippedText
