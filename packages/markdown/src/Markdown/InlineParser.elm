@@ -1,11 +1,11 @@
 module Markdown.InlineParser exposing (parse, query, walk)
 
+import Array exposing (Array)
 import Dict exposing (Dict)
 import Markdown.Config as Config exposing (HtmlOption(..), Options)
 import Markdown.Helpers exposing (Attribute, References, cleanWhitespaces, formatStr, ifError, insideSquareBracketRegex, isEven, prepareRefLabel, returnFirstJust, titleRegex, whiteSpaceChars)
 import Markdown.Inline exposing (Inline(..), InlineContent(..))
 import Markdown.Wikilink as Wikilink exposing (WikilinkData)
-import Array exposing (Array)
 import Regex exposing (Regex)
 import SourceLocation exposing (Position, Region)
 import Url
@@ -125,12 +125,15 @@ parse options refs startPosition rawText =
         trimmedText =
             String.trim rawText
 
+        trimLeftCount : Int
         trimLeftCount =
             String.length rawText - String.length (String.trimLeft rawText)
 
+        trimmedStartPos : Position
         trimmedStartPos =
             { row = startPosition.row, col = startPosition.col + trimLeftCount }
 
+        offsetToPos : Int -> Position
         offsetToPos =
             buildPositionLookup trimmedStartPos trimmedText
     in
