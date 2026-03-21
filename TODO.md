@@ -23,6 +23,12 @@
 
 ## Performance
 
+- [x] Add benchmark suite (`pnpm run bench`)
+- [x] Eliminate per-line regex compilation in `indentLine`/`indentLength`
+- [x] Add block-parse fast-path for alphabetic lines (skip 8 regex checks)
+- [x] Eliminate O(n²) string concat in paragraph/code block building
+- [x] Early-exit in `findToken` (O(n) → O(k))
+- [ ] Single-pass inline tokenizer (currently 9 separate regex scans per inline parse)
 - [ ] Implement SegmentCache for incremental block-level parsing (see [design spec](docs/specs/2026-03-21-segment-cache-design.md))
 - [ ] Factor `Markdown.Block.parse` to work per-block with block-relative regions
 - [ ] Write `splitMarkdownAtBlankLines` (respecting fences, block quotes, lists)
