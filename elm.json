@@ -3,6 +3,7 @@
     "source-directories": [
         "src",
         "packages/markdown/src",
+        "packages/segment-cache/src",
         "lib/elm-codemirror/src",
         "lib/elm-fs-server/src",
         "lib/elm-websocket-manager/src",
